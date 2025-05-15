@@ -14,10 +14,15 @@ export class NotificationApi {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        throw new Error('User not authenticated');
+        throw new Error('User authentication token not found');
       }
 
-      const response = await fetch(`${API_BASE_URL}/notifications/subscribe`, {
+      // Verify subscription is valid
+      if (!subscription || !subscription.endpoint) {
+        throw new Error('Invalid push subscription');
+      }
+
+      const response = await fetch(`${this.API_BASE_URL}/notifications/subscribe`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

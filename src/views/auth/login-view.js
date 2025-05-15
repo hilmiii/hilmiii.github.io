@@ -4,30 +4,15 @@ export class LoginView extends BaseView {
   constructor() {
     super();
     this.submitButton = null;
-  }
-
-  setSubmitHandler(handler) {
-    const form = document.getElementById('loginForm');
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const email = form.querySelector('#email').value;
-      const password = form.querySelector('#password').value;
-
-      try {
-        await handler(email, password);
-      } catch (error) {
-        this.showError(error.message);
-      }
-    });
+    this.errorTimeout = null;
   }
 
   render() {
     this.main.innerHTML = `
-      <section class="auth-container">
+      <section class="auth-container" aria-labelledby="loginTitle">
         <div class="auth-card">
-          <h1 class="auth-title">Masuk ke SerlokTakParani</h1>
-          <form id="loginForm" class="auth-form">
+          <h1 id="loginTitle" class="auth-title">Masuk ke SerlokTakParani</h1>
+          <form id="loginForm" class="auth-form" aria-label="Formulir login">
             ${this.getEmailField()}
             ${this.getPasswordField()}
             <button type="submit" class="btn btn-primary btn-block" id="submitButton">
@@ -41,7 +26,7 @@ export class LoginView extends BaseView {
       </section>
     `;
 
-    this.submitButton = document.getElementById('submitButton');
+    this.initializeForm();
   }
 
   getEmailField() {
@@ -54,8 +39,11 @@ export class LoginView extends BaseView {
           name="email" 
           placeholder="email@contoh.com" 
           required
+          aria-required="true"
           aria-describedby="emailHelp"
           autocomplete="username"
+          autocapitalize="off"
+          spellcheck="false"
         >
         <small id="emailHelp" class="form-text">Gunakan email yang sudah terdaftar</small>
       </div>
@@ -64,104 +52,158 @@ export class LoginView extends BaseView {
 
   getPasswordField() {
     return `
-      <div class="form-group">
+      <div class="form-group password-group">
         <label for="password">Password</label>
-        <input 
-          type="password" 
-          id="password" 
-          name="password" 
-          placeholder="Minimal 8 karakter" 
-          minlength="8"
-          required
-          autocomplete="current-password"
-        >
-        <button type="button" id="togglePassword" class="password-toggle">
-          <i class="fas fa-eye"></i>
-        </button>
+        <div class="password-input-container">
+          <input 
+            type="password" 
+            id="password" 
+            name="password" 
+            placeholder="Minimal 8 karakter" 
+            minlength="8"
+            required
+            aria-required="true"
+            autocomplete="current-password"
+          >
+          <button 
+            type="button" 
+            id="togglePassword" 
+            class="password-toggle"
+            aria-label="Toggle password visibility"
+          >
+            <i class="fas fa-eye" aria-hidden="true"></i>
+          </button>
+        </div>
       </div>
     `;
   }
 
-  setSubmitHandler(handler) {
+  initializeForm() {
+    this.submitButton = document.getElementById('submitButton');
     const form = document.getElementById('loginForm');
-    const emailInput = form.querySelector('#email');
     const passwordInput = form.querySelector('#password');
     const togglePassword = form.querySelector('#togglePassword');
 
+    // Password visibility toggle
     togglePassword?.addEventListener('click', () => {
-      const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
-      passwordInput.setAttribute('type', type);
-      togglePassword.innerHTML = type === 'password' 
-        ? '<i class="fas fa-eye"></i>' 
-        : '<i class="fas fa-eye-slash"></i>';
+      const isPassword = passwordInput.type === 'password';
+      passwordInput.type = isPassword ? 'text' : 'password';
+      togglePassword.innerHTML = isPassword 
+        ? '<i class="fas fa-eye-slash" aria-hidden="true"></i>' 
+        : '<i class="fas fa-eye" aria-hidden="true"></i>';
+      togglePassword.setAttribute('aria-label', 
+        isPassword ? 'Sembunyikan password' : 'Tampilkan password');
     });
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      if (!emailInput.value || !passwordInput.value) {
-        this.showError('Harap isi semua field');
-        return;
-      }
+    // Form submission
+    form.addEventListener('submit', this.handleSubmit.bind(this));
+  }
 
-      if (passwordInput.value.length < 8) {
-        this.showError('Password harus minimal 8 karakter');
-        return;
-      }
+  async handleSubmit(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const email = form.email.value.trim();
+    const password = form.password.value;
 
-      this.setLoadingState(true);
-      
+    // Clear previous errors
+    this.clearError();
+
+    // Client-side validation
+    if (!email || !password) {
+      this.showError('Harap isi semua field');
+      return;
+    }
+
+    if (password.length < 8) {
+      this.showError('Password harus minimal 8 karakter');
+      return;
+    }
+
+    this.setLoadingState(true);
+
+    try {
+      await this.submitHandler(email, password);
+      this.clearForm();
+    } catch (error) {
+      this.showError(error.message || 'Terjadi kesalahan saat login');
+    } finally {
+      this.setLoadingState(false);
+    }
+  }
+
+  setSubmitHandler(handler) {
+    this.submitHandler = async (email, password) => {
       try {
-        await handler(emailInput.value, passwordInput.value);
+        await handler(email, password);
+        this.showSuccess('Login berhasil!');
       } catch (error) {
-        this.setLoadingState(false);
-        this.showError(error.message);
+        throw error; // Re-throw to be caught in handleSubmit
       }
-    });
+    };
   }
 
   setLoadingState(isLoading) {
     if (!this.submitButton) return;
 
-    if (isLoading) {
-      this.submitButton.disabled = true;
-      this.submitButton.innerHTML = `
-        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
-        Memproses...
-      `;
-    } else {
-      this.submitButton.disabled = false;
-      this.submitButton.textContent = 'Masuk';
-    }
+    this.submitButton.disabled = isLoading;
+    this.submitButton.innerHTML = isLoading
+      ? `
+        <span class="spinner-border spinner-border-sm" 
+              role="status" 
+              aria-hidden="true"></span>
+        <span class="sr-only">Memproses...</span>
+      `
+      : 'Masuk';
   }
 
   showSuccess(message) {
-    const alertDiv = document.createElement('div');
-    alertDiv.className = 'alert alert-success';
-    alertDiv.textContent = message;
+    this.clearError();
+    
+    const successDiv = document.createElement('div');
+    successDiv.className = 'alert alert-success';
+    successDiv.setAttribute('role', 'alert');
+    successDiv.innerHTML = `
+      <span class="fas fa-check-circle" aria-hidden="true"></span>
+      <span>${message}</span>
+    `;
     
     const authCard = document.querySelector('.auth-card');
-    authCard.prepend(alertDiv);
+    authCard.prepend(successDiv);
     
-    setTimeout(() => alertDiv.remove(), 3000);
+    setTimeout(() => {
+      successDiv.classList.add('fade-out');
+      setTimeout(() => successDiv.remove(), 300);
+    }, 3000);
   }
 
   showError(message) {
+    this.clearError();
+    
     const errorDiv = document.createElement('div');
     errorDiv.className = 'alert alert-danger';
-    errorDiv.textContent = message;
+    errorDiv.setAttribute('role', 'alert');
+    errorDiv.innerHTML = `
+      <span class="fas fa-exclamation-circle" aria-hidden="true"></span>
+      <span>${message}</span>
+    `;
     
-    const authCard = document.querySelector('.auth-card');
-    const existingError = authCard.querySelector('.alert-danger');
+    const form = document.getElementById('loginForm');
+    form.parentNode.insertBefore(errorDiv, form);
     
-    if (existingError) {
-      existingError.replaceWith(errorDiv);
-    } else {
-      const form = document.getElementById('loginForm');
-      authCard.insertBefore(errorDiv, form);
+    this.errorTimeout = setTimeout(() => {
+      errorDiv.classList.add('fade-out');
+      setTimeout(() => errorDiv.remove(), 300);
+    }, 5000);
+  }
+
+  clearError() {
+    if (this.errorTimeout) {
+      clearTimeout(this.errorTimeout);
+      this.errorTimeout = null;
     }
-    
-    setTimeout(() => errorDiv.remove(), 5000);
+    const existingError = document.querySelector('.alert-danger');
+    if (existingError) existingError.remove();
   }
 
   clearForm() {
@@ -171,6 +213,17 @@ export class LoginView extends BaseView {
 
   focusEmailField() {
     const emailInput = document.getElementById('email');
-    if (emailInput) emailInput.focus();
+    if (emailInput) {
+      emailInput.focus();
+      emailInput.select();
+    }
+  }
+
+  cleanup() {
+    this.clearError();
+    const form = document.getElementById('loginForm');
+    if (form) {
+      form.removeEventListener('submit', this.handleSubmit);
+    }
   }
 }

@@ -1,12 +1,13 @@
 import NotificationApi from '../scripts/data/api/notification-api.js';
 import { storyDB } from '../scripts/utils/database.js';
 
-const notificationApi = new NotificationApi(); // ✅ Instance global
+// const notificationApi = new NotificationApi(); // ✅ Instance global
 
-export class AuthPresenter {
+  export class AuthPresenter {
   constructor(model) {
     this.model = model;
     this.vapidPublicKey = 'BFYa10SRrAlf_ZBtqrbHtfyxfSxpRqniHz_iiNmKiYuY1A5o-2l6cJ2CWh-adWIY0gOKO_iZPaneCfBbEPAuPcc';
+    this.notificationApi = new NotificationApi();
   }
 
   initLogin(view) {
@@ -44,50 +45,58 @@ export class AuthPresenter {
     }
   }
 
-  async handleLogin(email, password) {
-    try {
-      await this.model.login(email, password);
-      this.view.showSuccess('Login berhasil!');
-
-      const hasPermission = await this.checkNotificationPermission();
-
+async handleLogin(email, password) {
+  try {
+    const result = await this.model.login(email, password); // ✅ dapatkan token
+    localStorage.setItem('token', result.token);             // ✅ simpan token
+    this.view.showSuccess('Login berhasil!');
+    
+    await storyDB.openDB();
+    
+    const hasPermission = await this.checkNotificationPermission();
+    if (hasPermission) {
       try {
-        if (hasPermission) {
-          await this.subscribeToPushNotifications();
-        }
+        await this.subscribeToPushNotifications(); // token sudah tersimpan
       } catch (err) {
         console.error('Gagal subscribe push:', err);
       }
-
-      try {
-        await storyDB.openDB();
-      } catch (err) {
-        console.error('Gagal buka DB:', err);
-      }
-
-      window.location.hash = '#/home';
-    } catch (error) {
-      this.view.showError(`Login gagal: ${error.message}`);
     }
+
+    window.location.hash = '#/home';
+  } catch (error) {
+    this.view.showError(`Login gagal: ${error.message}`);
   }
+}
+
 
   async subscribeToPushNotifications() {
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      try {
-        const registration = await navigator.serviceWorker.ready;
-        let subscription = await registration.pushManager.getSubscription();
+    if (!('serviceWorker' in navigator && 'PushManager' in window)) {
+      console.warn('Push notifications not supported');
+      return;
+    }
 
-        if (!subscription) {
-          subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey)
-          });
-        }
+    // Verify token exists before proceeding
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('User authentication token not found');
+    }
 
-        await notificationApi.subscribe(subscription); // ✅ FIXED
-      } catch (error) {
-        console.error('Error subscribing to push notifications:', error);
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      let subscription = await registration.pushManager.getSubscription();
+
+      if (!subscription) {
+        subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey)
+        });
       }
+
+      // Send subscription to server
+      await this.notificationApi.subscribe(subscription);
+    } catch (error) {
+      console.error('Push subscription error:', error);
+      throw error;
     }
   }
 
