@@ -8,6 +8,12 @@ import { registerSW } from 'virtual:pwa-register';
  * - Initializes core application functionality
  */
 
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js');
+  });
+}
+
 const initApp = async () => {
   // Daftarkan service worker jika produksi
   if (import.meta.env.PROD) {

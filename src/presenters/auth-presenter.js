@@ -1,7 +1,22 @@
 import { NotificationApi } from '../scripts/data/api/notification-api.js';
 import { storyDB } from '../scripts/utils/database.js';
+import { subscribeToPushNotifications } from './notification-presenter.js';
 
 // const notificationApi = new NotificationApi(); // ✅ Instance global
+
+export const loginUser = async (email, password) => {
+  try {
+    const result = await authModel.login(email, password);
+    window.dispatchEvent(new Event('auth-change'));
+
+    // ⬇ Tambahkan ini
+    await subscribeToPushNotifications();
+
+    return result;
+  } catch (err) {
+    throw err;
+  }
+};
 
   export class AuthPresenter {
   constructor(model) {

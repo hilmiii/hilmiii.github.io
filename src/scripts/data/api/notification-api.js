@@ -1,6 +1,19 @@
 const API_BASE_URL = 'https://story-api.dicoding.dev/v1';
 const VAPID_PUBLIC_KEY = 'BCCs2eonMI-6H2ctvFaWg-UYdDv387Vno_bzUzALpB442r2lCnsHmtrx8biyPi_E-1fSGABK_Qs_GlvPoJJqxbk';
 
+export const subscribeToNotification = async (subscription) => {
+  const response = await fetch(`${API_BASE_URL}/notifications/subscribe`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${getAuthToken()}`,
+    },
+    body: JSON.stringify(subscription),
+  });
+
+  return response.json();
+};
+
 export class NotificationApi {
   constructor() {
     this.VAPID_PUBLIC_KEY = VAPID_PUBLIC_KEY;
@@ -16,7 +29,7 @@ export class NotificationApi {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`, // ✅ gunakan token
+      'Authorization': `Bearer ${token}`, // token valid di sini
     },
     body: JSON.stringify({
       endpoint: subscription.endpoint,
@@ -38,6 +51,7 @@ export class NotificationApi {
 
   return result;
 }
+
 
 
   /**

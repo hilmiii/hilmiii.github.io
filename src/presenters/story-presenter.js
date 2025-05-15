@@ -174,24 +174,34 @@ async handleFormSubmit(formData) {
   }
 
   async registerPushNotifications() {
-    if (!this.notificationApi) {
-      console.error('NotificationApi not available');
-      return;
+  if (!this.notificationApi) {
+    console.error('NotificationApi not available');
+    return;
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+
+    if (!subscription) {
+      subscription = await this.createPushSubscription(registration);
     }
 
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      let subscription = await registration.pushManager.getSubscription();
-      
-      if (!subscription) {
-        subscription = await this.createPushSubscription(registration);
-        await this.notificationApi.subscribe(subscription);
-      }
-    } catch (error) {
-      console.error('Push registration failed:', error);
-      throw error;
+    // Ambil token dari authModel, misal
+    const token = this.authModel.getToken(); // Buat method getToken() yang mengembalikan token string
+    if (!token) {
+      throw new Error('User not authenticated');
     }
+
+    // Kirim subscription dan token ke API subscribe
+    await this.notificationApi.subscribe(subscription, token);
+
+  } catch (error) {
+    console.error('Push registration failed:', error);
+    throw error;
   }
+}
+
 
   async createPushSubscription(registration) {
     return await registration.pushManager.subscribe({

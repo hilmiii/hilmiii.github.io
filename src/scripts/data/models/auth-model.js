@@ -8,6 +8,11 @@ import {
 } from '../api/auth-api.js';
 
 export class AuthModel {
+  // Konsisten gunakan token dari auth-api.js
+  getToken() {
+    return getAuthToken();
+  }
+
   async register(name, email, password) {
     return await register(name, email, password);
   }
@@ -25,15 +30,11 @@ export class AuthModel {
   }
 
   isLoggedIn() {
-    return apiIsLoggedIn() && !!this.getAuthToken();
+    return apiIsLoggedIn() && !!this.getToken();
   }
 
   logout() {
     apiLogout();
     window.dispatchEvent(new Event('auth-change'));
-  }
-
-  isLoggedIn() {
-    return apiIsLoggedIn() && !!this.getAuthToken();
   }
 }
