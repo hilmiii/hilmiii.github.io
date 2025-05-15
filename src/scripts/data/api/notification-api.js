@@ -1,97 +1,95 @@
-// src/scripts/data/api/notification-api.js
-const API_BASE_URL = 'https://story-api.dicoding.dev/v1'; // Replace with your actual API base URL
+const API_BASE_URL = 'https://story-api.dicoding.dev/v1';
+const VAPID_PUBLIC_KEY = 'BCCs2eonMI-6H2ctvFaWg-UYdDv387Vno_bzUzALpB442r2lCnsHmtrx8biyPi_E-1fSGABK_Qs_GlvPoJJqxbk';
 
 export class NotificationApi {
   constructor() {
-    this.API_BASE_URL = 'https://story-api.dicoding.dev/v1';
+    this.VAPID_PUBLIC_KEY = VAPID_PUBLIC_KEY;
   }
+
   /**
    * Subscribe to push notifications
-   * @param {PushSubscription} subscription - The PushSubscription object
-   * @returns {Promise<Object>} - Response from the server
+   * @param {PushSubscription} subscription 
+   * @returns {Promise<Object>}
    */
-  async subscribe(subscription) {
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('User authentication token not found');
-      }
-
-      // Verify subscription is valid
-      if (!subscription || !subscription.endpoint) {
-        throw new Error('Invalid push subscription');
-      }
-
-      const response = await fetch(`${this.API_BASE_URL}/notifications/subscribe`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          endpoint: subscription.endpoint,
-          keys: {
-            p256dh: subscription.toJSON().keys.p256dh,
-            auth: subscription.toJSON().keys.auth,
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to subscribe to notifications');
-      }
-
-      return await response.json();
-    } catch (error) {
-      console.error('Notification subscription error:', error);
-      throw error;
+   async subscribe(subscription) {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('No auth token found');
     }
+
+    const body = {
+      endpoint: subscription.endpoint,
+      keys: {
+        p256dh: subscription.keys.p256dh,
+        auth: subscription.keys.auth
+      }
+    };
+
+    const response = await fetch(`${this.baseUrl}/notifications/subscribe`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    });
+
+    const result = await response.json();
+
+    if (!response.ok || result.error) {
+      throw new Error(result.message || 'Gagal subscribe push notification');
+    }
+
+    return result.data;
   }
 
   /**
    * Unsubscribe from push notifications
-   * @returns {Promise<Object>} - Response from the server
+   * @param {string} endpoint 
+   * @returns {Promise<Object>}
    */
-  async unsubscribe() {
+  async unsubscribe(endpoint) {
     try {
       const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('User not authenticated');
-      }
+      if (!token) throw new Error('User not authenticated');
 
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
-
-      if (!subscription) {
-        return { success: true, message: 'No active subscription' };
-      }
-
-      // Unsubscribe from browser push service
-      await subscription.unsubscribe();
-
-      // Notify server about unsubscription
-      const response = await fetch(`${API_BASE_URL}/notifications/unsubscribe`, {
-        method: 'POST',
+      const response = await fetch(`${API_BASE_URL}/notifications/subscribe`, {
+        method: 'DELETE',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          endpoint: subscription.endpoint,
-        }),
+        body: JSON.stringify({ endpoint })
       });
 
+      const data = await response.json();
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Failed to unsubscribe from notifications');
+        throw new Error(data.message || 'Failed to unsubscribe');
       }
 
-      return await response.json();
+      return data;
     } catch (error) {
-      console.error('Notification unsubscription error:', error);
+      console.error('Unsubscribe error:', error);
       throw error;
     }
+  }
+
+  /**
+   * Convert VAPID key to Uint8Array
+   */
+  urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding)
+      .replace(/-/g, '+')
+      .replace(/_/g, '/');
+
+    const rawData = atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
   }
 
   /**
