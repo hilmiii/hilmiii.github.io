@@ -45,48 +45,77 @@ import { storyDB } from '../scripts/utils/database.js';
   }
 
  async handleLogin(email, password) {
-    try {
-      // 1. Authenticate user
-      await this.model.login(email, password);
-      
-      // 2. Request notification permission
-      const permission = await Notification.requestPermission();
-      
-      if (permission === 'granted') {
-        try {
-          await this.subscribeToPushNotifications();
-        } catch (error) {
-          console.warn('Push subscription failed:', error);
-          // Non-critical error - continue with login
-        }
-      }
-      
-      this.view.showSuccess('Login berhasil!');
-      window.location.hash = '#/home';
-    } catch (error) {
-      this.view.showError(`Login gagal: ${error.message}`);
+  try {
+    // 1. Login dan ambil token
+    const result = await this.model.login(email, password);
+
+    // 2. Simpan token jika tersedia
+    if (result && result.token) {
+      localStorage.setItem('token', result.token);
+    } else {
+      throw new Error('Token tidak tersedia dari server.');
     }
+
+    this.view.showSuccess('Login berhasil!');
+
+    // 3. Buka database lokal
+    try {
+      await storyDB.openDB();
+    } catch (err) {
+      console.error('Gagal buka DB:', err);
+    }
+
+    // 4. Cek & minta izin notifikasi
+    const hasPermission = await this.checkNotificationPermission();
+
+    if (hasPermission) {
+      try {
+        await this.subscribeToPushNotifications();
+      } catch (err) {
+        console.error('Gagal subscribe push:', err);
+      }
+    }
+
+    // 5. Redirect
+    window.location.hash = '#/home';
+
+  } catch (error) {
+    this.view.showError(`Login gagal: ${error.message}`);
   }
+}
+
 
   async subscribeToPushNotifications() {
-    if (!('serviceWorker' in navigator && 'PushManager' in window)) {
-      throw new Error('Push notifications not supported');
-    }
+  if (!('serviceWorker' in navigator && 'PushManager' in window)) {
+    console.warn('Push notifications not supported');
+    return;
+  }
 
+  // ✅ Ambil token dari model, bukan langsung dari localStorage
+  const token = this.model.getAuthToken();
+  if (!token) {
+    throw new Error('User authentication token not found');
+  }
+
+  try {
     const registration = await navigator.serviceWorker.ready;
     let subscription = await registration.pushManager.getSubscription();
 
     if (!subscription) {
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: this.notificationApi.urlBase64ToUint8Array(
-          this.notificationApi.VAPID_PUBLIC_KEY
-        )
+        applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey),
       });
     }
 
-    return this.notificationApi.subscribe(subscription);
+    // ✅ Kirim subscription ke server, pastikan pakai Authorization Bearer
+    await this.notificationApi.subscribe(subscription, token);
+  } catch (error) {
+    console.error('Push subscription error:', error);
+    throw error;
   }
+}
+
 
   async unsubscribeFromPushNotifications() {
     if (!('serviceWorker' in navigator)) return;

@@ -11,37 +11,34 @@ export class NotificationApi {
    * @param {PushSubscription} subscription 
    * @returns {Promise<Object>}
    */
-   async subscribe(subscription) {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      throw new Error('No auth token found');
-    }
-
-    const body = {
+   async subscribe(subscription, token) {
+  const response = await fetch(`${API_BASE_URL}/notifications/subscribe`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`, // ✅ gunakan token
+    },
+    body: JSON.stringify({
       endpoint: subscription.endpoint,
       keys: {
-        p256dh: subscription.keys.p256dh,
-        auth: subscription.keys.auth
+        p256dh: subscription.getKey('p256dh')
+          ? btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('p256dh'))))
+          : '',
+        auth: subscription.getKey('auth')
+          ? btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('auth'))))
+          : '',
       }
-    };
+    }),
+  });
 
-    const response = await fetch(`${this.baseUrl}/notifications/subscribe`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(body)
-    });
-
-    const result = await response.json();
-
-    if (!response.ok || result.error) {
-      throw new Error(result.message || 'Gagal subscribe push notification');
-    }
-
-    return result.data;
+  const result = await response.json();
+  if (!response.ok || result.error) {
+    throw new Error(result.message || 'Gagal subscribe notifikasi');
   }
+
+  return result;
+}
+
 
   /**
    * Unsubscribe from push notifications
