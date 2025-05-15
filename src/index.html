@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="id" dir="ltr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SerlokTakParani - Platform Curhat Online Anonim</title>
+  <meta name="description" content="Platform untuk berbagi cerita dan pengalaman secara anonim dengan dukungan lokasi">
+  <meta name="theme-color" content="#4a148c">
+  <meta http-equiv="Service-Worker-Allowed" content="/">
+  <link rel="manifest" href="/manifest.webmanifest">
+
+  <!-- Preload -->
+  <link rel="preload" href="/styles/styles.css" as="style">
+  <link rel="modulepreload" href="/scripts/routes/router.js" as="script">
+
+  <!-- Favicons -->
+  <link rel="icon" href="/images/favicon.png" type="image/png">
+  <link rel="icon" href="/images/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
+
+  <!-- Critical CSS -->
+  <style>
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
+
+    .skip-link {
+      position: absolute;
+      top: -40px;
+      left: 0;
+      background: #1e293b;
+      color: white;
+      padding: 0.75rem 1.5rem;
+      z-index: 9999;
+      transition: transform 0.3s ease;
+      border-radius: 0 0 0.25rem 0;
+      font-weight: bold;
+    }
+
+    .skip-link:focus-visible {
+      transform: translateY(40px);
+      outline: 3px solid #ffffff;
+      outline-offset: -3px;
+    }
+
+    [role="main"]:focus-visible,
+    a:focus-visible,
+    button:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible {
+      outline: 3px solid #2563eb;
+      outline-offset: 3px;
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
+
+    .app-header {
+      background: #1e293b;
+      color: white;
+      padding: 1rem;
+    }
+
+    [role="list"] {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+  </style>
+
+  <!-- Non-critical CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
+        crossorigin="anonymous" media="print" onload="this.media='all'">
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" 
+        integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" 
+        crossorigin="anonymous" referrerpolicy="no-referrer" media="print" onload="this.media='all'">
+
+  <link rel="stylesheet" href="/styles/styles.css">
+</head>
+<body>
+  <div id="network-status" aria-live="polite" class="visually-hidden"></div>
+
+  <a href="#main-content" class="skip-link" id="skip-link">Lompat ke konten utama</a>
+
+  <header class="app-header" style="view-transition-name: header" role="banner">
+    <div class="header-container">
+      <h1>
+        <a href="#/home" aria-label="Beranda SerlokTakParani - Kembali ke halaman utama">
+          <span aria-hidden="true">📌</span> SerlokTakParani
+        </a>
+      </h1>
+      <nav aria-label="Navigasi utama">
+        <ul role="list">
+          <li>
+            <a href="#/home" class="nav-link" aria-current="page">
+              <span class="visually-hidden">Halaman saat ini: </span>Beranda
+            </a>
+          </li>
+          <li>
+            <a href="#/add-story" class="nav-link">
+              <span aria-hidden="true">✏️</span>
+              <span class="visually-hidden">Buat </span>Curhat Baru
+            </a>
+          </li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main-content" role="main" tabindex="-1" aria-labelledby="page-title">
+    <h1 id="page-title" class="visually-hidden">SerlokTakParani</h1>
+    <!-- Konten dinamis akan dimuat di sini oleh router -->
+  </main>
+
+  <footer role="contentinfo" aria-labelledby="footer-heading">
+    <div class="footer-container">
+      <h2 id="footer-heading" class="visually-hidden">Informasi footer</h2>
+      <p>&copy; <span id="current-year">2025</span> SerlokTakParani - Tempat Curhat Tanpa Dihakimi</p>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script type="module" src="/scripts/main.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
+          crossorigin="anonymous" defer></script>
+  <script type="module" src="/scripts/routes/router.js" defer></script>
+
+  <!-- Runtime logic -->
+  <script>
+    document.getElementById('current-year').textContent = new Date().getFullYear();
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const skipLink = document.getElementById('skip-link');
+      const mainContent = document.getElementById('main-content');
+
+      if (skipLink && mainContent) {
+        skipLink.addEventListener('click', (e) => {
+          e.preventDefault();
+          mainContent.setAttribute('tabindex', '-1');
+          mainContent.focus();
+
+          const scrollBehavior = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 
+            'auto' : 'smooth';
+
+          mainContent.scrollIntoView({ behavior: scrollBehavior });
+
+          const liveRegion = document.createElement('div');
+          liveRegion.setAttribute('aria-live', 'polite');
+          liveRegion.className = 'visually-hidden';
+          liveRegion.textContent = 'Anda sekarang berada di konten utama';
+          document.body.appendChild(liveRegion);
+          setTimeout(() => document.body.removeChild(liveRegion), 1000);
+        });
+      }
+    });
+  </script>
+</body>
+</html>
