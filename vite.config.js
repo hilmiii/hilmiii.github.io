@@ -3,7 +3,11 @@ import { defineConfig } from 'vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
-  root: 'src', // or specify the folder containing index.html
+  root: 'src',
+  build: {
+    outDir: '../dist', // ⬅️ bangun ke folder dist di root proyek
+    emptyOutDir: true  // bersihkan dulu isinya saat build
+  }, // or specify the folder containing index.html
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
