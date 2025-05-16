@@ -52,20 +52,34 @@ workbox.routing.registerRoute(
 );
 
 self.addEventListener('push', (event) => {
-  const data = event.data ? event.data.json() : {};
-
-  const title = data.title || 'Notifikasi';
-const options = {
-  body: data.body || 'Pesan baru diterima!',
-  icon: data.icon || '/images/logo.png',
-  badge: data.badge || '/images/logo.png',
-  data: {
-    url: data.url || '/#/home'
+  console.log('[Service Worker] Push Received');
+  
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (e) {
+    console.error('Failed to parse push data:', e);
+    data = {
+      title: 'Notifikasi Baru',
+      body: 'Anda menerima pesan baru'
+    };
   }
-};
 
+  const title = data.title || 'CurhatAnonim';
+  const options = {
+    body: data.body || 'Ada curhat baru di sekitar Anda!',
+    icon: '/images/logo.png',
+    badge: '/images/logo.png',
+    data: {
+      url: data.url || '/#/home'
+    }
+  };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+      .then(() => console.log('Notification shown'))
+      .catch(err => console.error('Notification failed:', err))
+  );
 });
 
 self.addEventListener('notificationclick', (event) => {

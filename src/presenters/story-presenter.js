@@ -170,8 +170,8 @@ async handleFormSubmit(formData) {
   }
 
   async registerPushNotifications() {
-  if (!this.notificationApi) {
-    console.error('NotificationApi not available');
+  if (!('serviceWorker' in navigator && 'PushManager' in window)) {
+    console.error('Push API not supported');
     return;
   }
 
@@ -180,7 +180,11 @@ async handleFormSubmit(formData) {
     let subscription = await registration.pushManager.getSubscription();
 
     if (!subscription) {
-      subscription = await this.createPushSubscription(registration);
+      const convertedVapidKey = this.urlBase64ToUint8Array(this.vapidPublicKey);
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: convertedVapidKey
+      });
     }
 
     const token = this.authModel.getToken();
@@ -188,7 +192,11 @@ async handleFormSubmit(formData) {
       throw new Error('User not authenticated');
     }
 
-    await this.notificationApi.subscribe(subscription, token);
+    // Debug: Log subscription details
+    console.log('Push Subscription:', JSON.stringify(subscription));
+    
+    const response = await this.notificationApi.subscribe(subscription, token);
+    console.log('Subscription response:', response);
 
   } catch (error) {
     console.error('Push registration failed:', error);
@@ -213,4 +221,12 @@ async handleFormSubmit(formData) {
     const rawData = window.atob(base64);
     return new Uint8Array([...rawData].map(char => char.charCodeAt(0)));
   }
+
+async testNotification() {
+  const registration = await navigator.serviceWorker.ready;
+  registration.showNotification('Test Notification', {
+    body: 'This is a test notification',
+    icon: '/images/logo.png'
+  });
+}
 }
