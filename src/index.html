@@ -8,17 +8,11 @@
   <meta name="theme-color" content="#4a148c">
   <meta http-equiv="Service-Worker-Allowed" content="/">
   <link rel="manifest" href="/manifest.webmanifest">
-
-  <!-- Preload -->
   <link rel="preload" href="/styles/styles.css" as="style">
   <link rel="modulepreload" href="/scripts/routes/router.js" as="script">
-
-  <!-- Favicons -->
   <link rel="icon" href="/images/favicon.png" type="image/png">
   <link rel="icon" href="/images/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="/images/apple-touch-icon.png">
-
-  <!-- Critical CSS -->
   <style>
     .visually-hidden {
       position: absolute;
@@ -88,7 +82,6 @@
     }
   </style>
 
-  <!-- Non-critical CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
         crossorigin="anonymous" media="print" onload="this.media='all'">
@@ -98,6 +91,8 @@
         crossorigin="anonymous" referrerpolicy="no-referrer" media="print" onload="this.media='all'">
 
   <link rel="stylesheet" href="/styles/styles.css">
+  <link rel="manifest" href="/manifest.webmanifest">
+
 </head>
 <body>
   <div id="network-status" aria-live="polite" class="visually-hidden"></div>
@@ -131,7 +126,6 @@
 
   <main id="main-content" role="main" tabindex="-1" aria-labelledby="page-title">
     <h1 id="page-title" class="visually-hidden">SerlokTakParani</h1>
-    <!-- Konten dinamis akan dimuat di sini oleh router -->
   </main>
 
   <footer role="contentinfo" aria-labelledby="footer-heading">
@@ -141,14 +135,11 @@
     </div>
   </footer>
 
-  <!-- Scripts -->
   <script type="module" src="/scripts/main.js"></script>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
           crossorigin="anonymous" defer></script>
   <script type="module" src="/scripts/routes/router.js" defer></script>
-
-  <!-- Runtime logic -->
   <script>
     document.getElementById('current-year').textContent = new Date().getFullYear();
 

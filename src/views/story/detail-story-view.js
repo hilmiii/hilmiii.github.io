@@ -57,7 +57,8 @@ export class DetailStoryView extends BaseView {
     return `
       <section class="story-detail">
         <article class="story-card">
-          <img src="${story.photoUrl}" alt="Foto curhat dari ${story.name}" class="story-image">
+          
+          <img src="${story.photoUrl}" onerror="this.src='../public/images/fallback.jpg'" class="story-image" alt="Foto curhat dari ${story.name}" />
           <div class="story-content">
             <h3>${story.name}</h3>
             <p class="story-date">${new Date(story.createdAt).toLocaleDateString()}</p>

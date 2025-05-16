@@ -536,3 +536,28 @@ footer {
 #network-status:not(.visually-hidden) {
   position: fixed;
 }
+
+.btn-danger {
+  background-color: #dc3545;
+  color: white;
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+.btn-danger:hover {
+  background-color: #c82333;
+}
+
+.not-found {
+  text-align: center;
+  padding: 3rem;
+  color: #d00;
+}
+.not-found a {
+  display: inline-block;
+  margin-top: 1rem;
+  color: #007bff;
+}

@@ -7,8 +7,10 @@ export class AddStoryView extends BaseView {
     this.cameraStream = null;
     this.map = null;
     this.photoFile = null;
-    
-    // Bind all methods that need 'this' context
+    this.isSubmitting = false;
+    this.submitHandler = null;
+
+    this.handleSubmit = this.handleSubmit.bind(this);
     this.startCamera = this.startCamera.bind(this);
     this.stopCamera = this.stopCamera.bind(this);
     this.capturePhoto = this.capturePhoto.bind(this);
@@ -17,45 +19,126 @@ export class AddStoryView extends BaseView {
     this.setupMapClickHandler = this.setupMapClickHandler.bind(this);
   }
 
-   async ensureDOMReady() {
-    let attempts = 0;
-    while (attempts < 5) {
-      if (document.getElementById('storyForm')) {
-        return true;
-      }
-      await new Promise(resolve => setTimeout(resolve, 50));
-      attempts++;
+  async init(onSubmit) {
+    try {
+      this.submitHandler = onSubmit;
+      this.renderTemplate();
+      this.initializeMap();
+      this.setupEventListeners();
+      this.setupAriaAttributes();
+      this.focusFirstField();
+    } catch (error) {
+      console.error('Initialization failed:', error);
+      this.showError('Failed to initialize form');
     }
-    return false;
   }
 
-  // async init(onSubmit) {
-  //   try {
-  //     this.main.innerHTML = this.getTemplate();
-      
-  //     if (!(await this.ensureDOMReady())) {
-  //       throw new Error('Form elements not found in DOM');
-  //     }
-      
-  //     this.map = await initMap('map');
-  //     await this.setupEventListeners(onSubmit);
-  //     this.setupMapClickHandler();
-  //     this.setupAriaAttributes();
-  //     this.initialized = true;
-  //   } catch (error) {
-  //     console.error('Initialization failed:', error);
-  //     this.showError('Failed to initialize form');
-  //   }
-  // }
+  renderTemplate() {
+    const isLoggedIn = false; 
+    
+    this.main.innerHTML = `
+      <section class="add-story" aria-labelledby="addStoryTitle">
+        <h2 id="addStoryTitle">${isLoggedIn ? 'Buat Curhat Baru' : 'Buat Curhat Anonim'}</h2>
+        <form id="storyForm" aria-label="Formulir tambah curhat">
+          ${this.getDescriptionField()}
+          ${this.getPhotoField()}
+          ${this.getLocationField()}
+          ${this.getNotificationConsent(isLoggedIn)}
+          <button type="submit" class="btn-primary" id="submitBtn">
+            Kirim Curhat
+          </button>
+        </form>
+      </section>
+    `;
+  }
 
-  async init(onSubmit) {
-    this.main.innerHTML = this.getTemplate();
-    this.setupEventListeners(onSubmit);
+  initializeMap() {
     this.map = initMap('map');
     this.setupMapClickHandler();
   }
 
-  async _startCamera() {
+  setupEventListeners() {
+    const form = document.getElementById('storyForm');
+    if (!form) return;
+
+    form.removeEventListener('submit', this.handleSubmit);
+    form.addEventListener('submit', this.handleSubmit);
+
+    const cameraBtn = document.getElementById('cameraBtn');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const captureBtn = document.getElementById('captureBtn');
+    const photoInput = document.getElementById('photoInput');
+    const getLocationBtn = document.getElementById('getLocationBtn');
+
+    if (cameraBtn) cameraBtn.addEventListener('click', this.startCamera);
+    if (uploadBtn) uploadBtn.addEventListener('click', () => photoInput.click());
+    if (captureBtn) captureBtn.addEventListener('click', this.capturePhoto);
+    if (photoInput) photoInput.addEventListener('change', this.handleFileUpload);
+    if (getLocationBtn) getLocationBtn.addEventListener('click', this.handleGetLocation);
+  }
+
+  setupAriaAttributes() {
+    const form = document.getElementById('storyForm');
+    if (form) {
+      form.setAttribute('aria-live', 'polite');
+    }
+  }
+
+  async handleSubmit(event) {
+    event.preventDefault();
+    
+    if (this.isSubmitting) return;
+    this.isSubmitting = true;
+    this.setLoadingState(true);
+
+    try {
+      const formData = this.getFormData();
+      await this.validateFormData(formData);
+      await this.submitHandler(formData);
+      
+      this.showSuccess('Curhat berhasil dikirim!');
+      setTimeout(() => {
+        window.location.hash = '#/home';
+      }, 2000);
+    } catch (error) {
+      this.showError(error.message);
+    } finally {
+      this.isSubmitting = false;
+      this.setLoadingState(false);
+    }
+  }
+
+  async validateFormData(formData) {
+    if (!formData.description || formData.description.length < 5) {
+      throw new Error('Deskripsi harus minimal 5 karakter');
+    }
+
+    if (!formData.photo) {
+      throw new Error('Silakan tambahkan foto');
+    }
+
+    if (formData.photo.size > 1000000) {
+      throw new Error('Ukuran file terlalu besar. Maksimal 1MB.');
+    }
+  }
+
+  getFormData() {
+    const description = document.getElementById('description')?.value;
+    const lat = document.getElementById('lat')?.value;
+    const lng = document.getElementById('lng')?.value;
+
+    return {
+      description,
+      photo: this.photoFile,
+      location: lat && lng ? { 
+        lat: parseFloat(lat), 
+        lng: parseFloat(lng) 
+      } : null
+    };
+  }
+
+  /* Camera Methods */
+  async startCamera() {
     try {
       this.stopCamera();
       
@@ -82,21 +165,23 @@ export class AddStoryView extends BaseView {
     }
   }
 
-  _stopCamera() {
-    if (this.cameraStream) {
-      this.cameraStream.getTracks().forEach(track => track.stop());
-      const cameraFeed = document.getElementById('cameraFeed');
-      if (cameraFeed) {
-        cameraFeed.srcObject = null;
-        cameraFeed.style.display = 'none';
-      }
-      const captureBtn = document.getElementById('captureBtn');
-      if (captureBtn) captureBtn.style.display = 'none';
-      this.cameraStream = null;
+  stopCamera() {
+    if (!this.cameraStream) return;
+    
+    this.cameraStream.getTracks().forEach(track => track.stop());
+    const cameraFeed = document.getElementById('cameraFeed');
+    const captureBtn = document.getElementById('captureBtn');
+    
+    if (cameraFeed) {
+      cameraFeed.srcObject = null;
+      cameraFeed.style.display = 'none';
     }
+    if (captureBtn) captureBtn.style.display = 'none';
+    
+    this.cameraStream = null;
   }
 
-  _capturePhoto() {
+  capturePhoto() {
     const cameraFeed = document.getElementById('cameraFeed');
     const photoPreview = document.getElementById('photoPreview');
     const photoInput = document.getElementById('photoInput');
@@ -123,9 +208,9 @@ export class AddStoryView extends BaseView {
     }, 'image/jpeg', 0.9);
   }
 
-  _handleFileUpload(event) {
+  handleFileUpload(event) {
     this.stopCamera();
-    const file = event.target.files[0];
+    const file = event.target.files?.[0];
     if (!file) return;
 
     if (!file.type.match('image.*')) {
@@ -142,65 +227,119 @@ export class AddStoryView extends BaseView {
 
     this.photoFile = file;
     const photoPreview = document.getElementById('photoPreview');
-    photoPreview.src = URL.createObjectURL(file);
-    photoPreview.style.display = 'block';
+    if (photoPreview) {
+      photoPreview.src = URL.createObjectURL(file);
+      photoPreview.style.display = 'block';
+    }
   }
 
-  _setupMapClickHandler() {
-    if (!this.map) {
-      console.error('Map not initialized');
-      return;
+  /* Location Methods */
+  async handleGetLocation() {
+    try {
+      const position = await getCurrentLocation();
+      const lat = position.coords.latitude;
+      const lng = position.coords.longitude;
+      
+      this.updateLocationFields(lat, lng);
+      this.updateMapMarker(lat, lng);
+      
+    } catch (error) {
+      this.showError('Gagal mendapatkan lokasi: ' + error.message);
     }
+  }
 
+  setupMapClickHandler() {
+    if (!this.map) return;
+    
     this.map.on('click', (e) => {
       const lat = e.latlng.lat;
       const lng = e.latlng.lng;
       
-      document.getElementById('lat').value = lat;
-      document.getElementById('lng').value = lng;
-      
-      this.map.eachLayer(layer => {
-        if (layer instanceof L.Marker) {
-          this.map.removeLayer(layer);
-        }
-      });
-      
-      const marker = L.marker([lat, lng]).addTo(this.map)
-        .bindPopup(`
-          <b>Lokasi yang dipilih</b><br>
-          Lat: ${lat.toFixed(6)}<br>
-          Lng: ${lng.toFixed(6)}
-        `)
-        .openPopup();
-      
-      const coordinatesInfo = document.getElementById('coordinatesInfo');
-      const coordinatesText = document.getElementById('coordinatesText');
-      if (coordinatesText) {
-        coordinatesText.textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-      }
-      if (coordinatesInfo) {
-        coordinatesInfo.style.display = 'block';
-      }
+      this.updateLocationFields(lat, lng);
+      this.updateMapMarker(lat, lng);
     });
   }
 
-  getTemplate() {
-    const isLoggedIn = false;
+  updateLocationFields(lat, lng) {
+    const latInput = document.getElementById('lat');
+    const lngInput = document.getElementById('lng');
+    const coordinatesText = document.getElementById('coordinatesText');
+    const coordinatesInfo = document.getElementById('coordinatesInfo');
     
-    return `
-      <section class="add-story" aria-labelledby="addStoryTitle">
-        <h2 id="addStoryTitle">${isLoggedIn ? 'Buat Curhat Baru' : 'Buat Curhat Anonim'}</h2>
-        <form id="storyForm" aria-label="Formulir tambah curhat">
-          ${this.getDescriptionField()}
-          ${this.getPhotoField()}
-          ${this.getLocationField()}
-          ${this.getNotificationConsent(isLoggedIn)}
-          <button type="submit" class="btn-primary">Kirim Curhat</button>
-        </form>
-      </section>
-    `;
+    if (latInput) latInput.value = lat;
+    if (lngInput) lngInput.value = lng;
+    if (coordinatesText) coordinatesText.textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+    if (coordinatesInfo) coordinatesInfo.style.display = 'block';
   }
 
+  updateMapMarker(lat, lng) {
+    if (!this.map) return;
+    this.map.eachLayer(layer => {
+      if (layer instanceof L.Marker) this.map.removeLayer(layer);
+    });
+    
+    L.marker([lat, lng]).addTo(this.map)
+      .bindPopup(`
+        <b>Lokasi yang dipilih</b><br>
+        Lat: ${lat.toFixed(6)}<br>
+        Lng: ${lng.toFixed(6)}
+      `)
+      .openPopup();
+  }
+
+  /* UI Helper Methods */
+  setLoadingState(isLoading) {
+    const submitBtn = document.getElementById('submitBtn');
+    if (!submitBtn) return;
+
+    submitBtn.disabled = isLoading;
+    submitBtn.innerHTML = isLoading
+      ? `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Memproses...`
+      : 'Kirim Curhat';
+  }
+
+  showSuccess(message) {
+    this.showAlert(message, 'success');
+  }
+
+  showError(message) {
+    this.showAlert(message, 'danger');
+  }
+
+  showAlert(message, type) {
+    this.clearAlerts();
+    
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type}`;
+    alertDiv.setAttribute('role', 'alert');
+    alertDiv.innerHTML = `
+      <span class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle'}" 
+            aria-hidden="true"></span>
+      <span>${message}</span>
+    `;
+    
+    const form = document.getElementById('storyForm');
+    if (form) {
+      form.parentNode.insertBefore(alertDiv, form);
+    }
+    
+    setTimeout(() => {
+      alertDiv.classList.add('fade-out');
+      setTimeout(() => alertDiv.remove(), 300);
+    }, type === 'success' ? 3000 : 5000);
+  }
+
+  clearAlerts() {
+    const existingAlerts = document.querySelectorAll('.alert');
+    existingAlerts.forEach(alert => alert.remove());
+  }
+
+  focusFirstField() {
+    const descriptionField = document.getElementById('description');
+    if (descriptionField) descriptionField.focus();
+  }
+
+  /* Template Parts */
   getDescriptionField() {
     return `
       <div class="form-group">
@@ -330,301 +469,22 @@ export class AddStoryView extends BaseView {
     `;
   }
 
-  setupAriaAttributes() {
-    const form = document.getElementById('storyForm');
-    if (form) {
-      form.setAttribute('aria-live', 'polite');
-    }
-  }
-
-  getNotificationConsent(isLoggedIn) {
-    if (!isLoggedIn || !('Notification' in window)) return '';
-    
-    return `
-      <div class="form-group" id="notificationConsent">
-        <label for="enableNotifications">
-          <input type="checkbox" id="enableNotifications"> Aktifkan notifikasi
-        </label>
-      </div>
-    `;
-  }
-
-// setupEventListeners(onSubmit) {
-//   // Wait for DOM to be fully rendered
-//   setTimeout(() => {
-//     const form = document.getElementById('storyForm');
-//     if (!form) {
-//       console.error('Form element not found');
-//       return;
-//     }
-
-//     const photoInput = document.getElementById('photoInput');
-//     const cameraBtn = document.getElementById('cameraBtn');
-//     const uploadBtn = document.getElementById('uploadBtn');
-//     const captureBtn = document.getElementById('captureBtn');
-//     const getLocationBtn = document.getElementById('getLocationBtn');
-
-//     // Verify elements exist before adding listeners
-//     if (!photoInput || !cameraBtn || !uploadBtn || !captureBtn || !getLocationBtn) {
-//       console.error('One or more form elements not found');
-//       return;
-//     }
-
-//     // Add event listeners
-//     cameraBtn.addEventListener('click', this.startCamera);
-//     captureBtn.addEventListener('click', this.capturePhoto);
-//     uploadBtn.addEventListener('click', () => photoInput.click());
-//     photoInput.addEventListener('change', this.handleFileUpload);
-//     getLocationBtn.addEventListener('click', this.handleGetLocation);
-
-//     form.addEventListener('submit', async (e) => {
-//       e.preventDefault();
-//       try {
-//         const formData = this.getFormData();
-//         await onSubmit(formData);
-//         this.showSuccess('Story submitted successfully!');
-//         window.location.hash = '#/home';
-//       } catch (error) {
-//         this.showError(error.message);
-//       }
-//     });
-//   }, 100); // Small delay to ensure DOM is ready
-// }
-
-setupEventListeners(onSubmit) {
-  const form = document.getElementById('storyForm');
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    try {
-      const formData = this.getFormData();
-      await onSubmit(formData);
-      this.showSuccess('Story submitted successfully!');
-      setTimeout(() => {
-        window.location.hash = '#/home';
-      }, 2000);
-    } catch (error) {
-      this.showError(error.message);
-    }
-  });
-  const photoInput = document.getElementById('photoInput');
-  const photoPreview = document.getElementById('photoPreview');
-  const cameraBtn = document.getElementById('cameraBtn');
-  const uploadBtn = document.getElementById('uploadBtn');
-  const cameraFeed = document.getElementById('cameraFeed');
-  const captureBtn = document.getElementById('captureBtn');
-  const getLocationBtn = document.getElementById('getLocationBtn');
-
-  cameraBtn.addEventListener('click', this.startCamera.bind(this));
-  captureBtn.addEventListener('click', this.capturePhoto.bind(this));
-  uploadBtn.addEventListener('click', () => photoInput.click());
-  photoInput.addEventListener('change', (e) => this.handleFileUpload(e));
-  getLocationBtn.addEventListener('click', this.handleGetLocation.bind(this));
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    try {
-      const formData = this.getFormData();
-      await onSubmit(formData);
-      
-      // Show success message
-      this.showSuccess('Curhat berhasil dikirim!');
-      
-      // Redirect after 2 seconds
-      setTimeout(() => {
-        window.location.hash = '#/home';
-      }, 2000);
-      
-    } catch (error) {
-      this.showError(`Gagal mengirim curhat: ${error.message}`);
-    }
-  });
-}
-
-  async startCamera() {
-    try {
-      this.stopCamera();
-      
-      const cameraFeed = document.getElementById('cameraFeed');
-      const captureBtn = document.getElementById('captureBtn');
-      const photoInput = document.getElementById('photoInput');
-      
-      photoInput.value = '';
-      
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' },
-        audio: false 
-      });
-      
-      this.cameraStream = stream;
-      cameraFeed.srcObject = stream;
-      cameraFeed.style.display = 'block';
-      captureBtn.style.display = 'inline-block';
-    } catch (error) {
-      console.error('Camera error:', error);
-      this.showError('Tidak dapat mengakses kamera: ' + error.message);
-    }
-  }
-
-  stopCamera() {
-    if (!this.cameraStream) return;
-    
-    this.cameraStream.getTracks().forEach(track => track.stop());
-    const cameraFeed = document.getElementById('cameraFeed');
-    const captureBtn = document.getElementById('captureBtn');
-    
-    cameraFeed.srcObject = null;
-    cameraFeed.style.display = 'none';
-    captureBtn.style.display = 'none';
-    this.cameraStream = null;
-  }
-
-  capturePhoto() {
-    const cameraFeed = document.getElementById('cameraFeed');
-    const photoPreview = document.getElementById('photoPreview');
-    const photoInput = document.getElementById('photoInput');
-    
-    const canvas = document.createElement('canvas');
-    canvas.width = cameraFeed.videoWidth;
-    canvas.height = cameraFeed.videoHeight;
-    canvas.getContext('2d').drawImage(cameraFeed, 0, 0);
-    
-    canvas.toBlob(blob => {
-      this.photoFile = new File([blob], 'photo.jpg', { type: 'image/jpeg' });
-      photoPreview.src = URL.createObjectURL(this.photoFile);
-      photoPreview.style.display = 'block';
-      
-      const dataTransfer = new DataTransfer();
-      dataTransfer.items.add(this.photoFile);
-      photoInput.files = dataTransfer.files;
-
-      this.stopCamera();
-    }, 'image/jpeg', 0.9);
-  }
-
-  handleFileUpload(event) {
-    this.stopCamera();
-    const file = event.target.files[0];
-    
-    if (!file?.type.match('image.*')) {
-      this.showError('Hanya file gambar yang diperbolehkan');
-      event.target.value = '';
-      return;
-    }
-
-    if (file.size > 1000000) {
-      this.showError('Ukuran file terlalu besar. Maksimal 1MB.');
-      event.target.value = '';
-      return;
-    }
-
-    this.photoFile = file;
-    const photoPreview = document.getElementById('photoPreview');
-    photoPreview.src = URL.createObjectURL(file);
-    photoPreview.style.display = 'block';
-  }
-
-  async handleGetLocation() {
-    try {
-      const position = await getCurrentLocation();
-      const lat = position.coords.latitude;
-      const lng = position.coords.longitude;
-      
-      document.getElementById('lat').value = lat;
-      document.getElementById('lng').value = lng;
-      
-      this.map.setView([lat, lng], 15);
-      L.marker([lat, lng]).addTo(this.map)
-        .bindPopup('Lokasi kamu saat ini')
-        .openPopup();
-      
-      const coordinatesText = document.getElementById('coordinatesText');
-      const coordinatesInfo = document.getElementById('coordinatesInfo');
-      coordinatesText.textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-      coordinatesInfo.style.display = 'block';
-    } catch (error) {
-      this.showError('Gagal mendapatkan lokasi: ' + error.message);
-    }
-  }
-
-  setupMapClickHandler() {
-    this.map.on('click', (e) => {
-      const lat = e.latlng.lat;
-      const lng = e.latlng.lng;
-      
-      document.getElementById('lat').value = lat;
-      document.getElementById('lng').value = lng;
-      
-      this.map.eachLayer(layer => {
-        if (layer instanceof L.Marker) this.map.removeLayer(layer);
-      });
-      
-      L.marker([lat, lng]).addTo(this.map)
-        .bindPopup(`<b>Lokasi yang dipilih</b><br>Lat: ${lat.toFixed(6)}<br>Lng: ${lng.toFixed(6)}`)
-        .openPopup();
-      
-      const coordinatesText = document.getElementById('coordinatesText');
-      const coordinatesInfo = document.getElementById('coordinatesInfo');
-      coordinatesText.textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-      coordinatesInfo.style.display = 'block';
-    });
-  }
-
-  getFormData() {
-    const description = document.getElementById('description').value;
-    const lat = document.getElementById('lat').value;
-    const lng = document.getElementById('lng').value;
-
-    if (!description || description.length < 5) {
-      throw new Error('Deskripsi harus minimal 5 karakter');
-    }
-
-    if (!this.photoFile) {
-      throw new Error('Silakan tambahkan foto');
-    }
-
-    return {
-      description,
-      photo: this.photoFile,
-      location: lat && lng ? { lat: parseFloat(lat), lng: parseFloat(lng) } : null
-    };
-  }
-
-  showError(message) {
-    const errorElement = document.getElementById('error-message') || this.createAlertElement('error');
-    errorElement.textContent = message;
-    errorElement.style.display = 'block';
-    setTimeout(() => {
-      errorElement.style.display = 'none';
-    }, 5000);
-  }
-
-  showSuccess(message) {
-    const successElement = document.getElementById('success-message') || this.createAlertElement('success');
-    successElement.textContent = message;
-    successElement.style.display = 'block';
-    setTimeout(() => {
-      successElement.style.display = 'none';
-    }, 3000);
-  }
-
-  createAlertElement(type) {
-    const element = document.createElement('div');
-    element.id = `${type}-message`;
-    element.className = `alert ${type}`;
-    element.style.display = 'none';
-    document.body.appendChild(element);
-    return element;
-  }
-
   cleanup() {
     this.stopCamera();
     if (this.map) {
       this.map.off();
       this.map.remove();
+      this.map = null;
     }
+    
     const photoPreview = document.getElementById('photoPreview');
     if (photoPreview?.src) {
       URL.revokeObjectURL(photoPreview.src);
+    }
+    
+    const form = document.getElementById('storyForm');
+    if (form) {
+      form.removeEventListener('submit', this.handleSubmit);
     }
   }
 }

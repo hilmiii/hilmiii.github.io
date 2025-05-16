@@ -1,15 +1,40 @@
-// Import Workbox modules
 importScripts('https://storage.googleapis.com/workbox-cdn/releases/6.4.1/workbox-sw.js');
 
-// Set Workbox configuration
 workbox.setConfig({
   debug: false
 });
 
-// VAPID Public Key for push notifications
 const VAPID_PUBLIC_KEY = 'BCCs2eonMI-6H2ctvFaWg-UYdDv387Vno_bzUzALpB442r2lCnsHmtrx8biyPi_E-1fSGABK_Qs_GlvPoJJqxbk';
 
-// Precaching configuration
+const CACHE_NAME = 'app-shell-v1';
+const ASSETS_TO_CACHE = [
+  '/',
+  '/index.html',
+  '/main.js',
+  '/styles.css',
+  '/fallback.html',
+  '/icons/icon-192.png'
+];
+
+self.addEventListener('install', event => {
+  event.waitUntil(
+    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS_TO_CACHE))
+  );
+});
+
+self.addEventListener('fetch', event => {
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match('/fallback.html'))
+    );
+    return;
+  }
+
+  event.respondWith(
+    caches.match(event.request).then(response => response || fetch(event.request))
+  );
+});
+
 workbox.precaching.precacheAndRoute([
   {url: "assets/index-CtJ4DkCl.js", revision: null},
   {url: "assets/index-DZ1nFDTM.css", revision: null},
@@ -20,14 +45,12 @@ workbox.precaching.precacheAndRoute([
   {url: "manifest.webmanifest", revision: "6ecae317d6ade3c36a55a8ec6f812a6e"}
 ]);
 
-// Cache strategy for navigation
 workbox.routing.registerRoute(
   new workbox.routing.NavigationRoute(
     workbox.precaching.createHandlerBoundToURL('index.html')
   )
 );
 
-// Push Notification Handling
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {};
 
@@ -45,7 +68,6 @@ const options = {
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
-// Notification click handler
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   
@@ -53,14 +75,12 @@ self.addEventListener('notificationclick', (event) => {
     clients.matchAll({ type: 'window' }).then((clientList) => {
       const url = event.notification.data?.url || '/#/home';
       
-      // Check if there's already a window/tab open
       for (const client of clientList) {
         if (client.url === url && 'focus' in client) {
           return client.focus();
         }
       }
       
-      // Open new window if none found
       if (clients.openWindow) {
         return clients.openWindow(url);
       }
@@ -68,20 +88,18 @@ self.addEventListener('notificationclick', (event) => {
   );
 });
 
-// Background sync for failed requests
 workbox.routing.registerRoute(
   new RegExp('https://story-api.dicoding.dev/v1/stories'),
   new workbox.strategies.NetworkOnly({
     plugins: [
       new workbox.backgroundSync.BackgroundSyncPlugin('storyQueue', {
-        maxRetentionTime: 24 * 60 // Retry for max 24 hours
+        maxRetentionTime: 24 * 60 
       })
     ]
   }),
   'POST'
 );
 
-// Convert VAPID key to Uint8Array
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - base64String.length % 4) % 4);
   const base64 = (base64String + padding)
@@ -97,7 +115,22 @@ function urlBase64ToUint8Array(base64String) {
   return outputArray;
 }
 
-// Service worker activation
+workbox.routing.registerRoute(
+  ({request}) => request.destination === 'image',
+  new workbox.strategies.CacheFirst({
+    cacheName: 'image-cache',
+    plugins: [
+      new workbox.expiration.ExpirationPlugin({ maxEntries: 100 }),
+      new workbox.cacheableResponse.CacheableResponsePlugin({ statuses: [0, 200] })
+    ],
+    fetchOptions: {
+      mode: 'no-cors'
+    }
+  })
+);
+
+ASSETS_TO_CACHE.push('/images/fallback.jpg');
+
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((cacheNames) => {

@@ -2,14 +2,10 @@ import { NotificationApi } from '../scripts/data/api/notification-api.js';
 import { storyDB } from '../scripts/utils/database.js';
 import { subscribeToPushNotifications } from './notification-presenter.js';
 
-// const notificationApi = new NotificationApi(); // ✅ Instance global
-
 export const loginUser = async (email, password) => {
   try {
     const result = await authModel.login(email, password);
     window.dispatchEvent(new Event('auth-change'));
-
-    // ⬇ Tambahkan ini
     await subscribeToPushNotifications();
 
     return result;
@@ -17,7 +13,6 @@ export const loginUser = async (email, password) => {
     throw err;
   }
 };
-
   export class AuthPresenter {
   constructor(model) {
     this.model = model;
@@ -61,10 +56,8 @@ export const loginUser = async (email, password) => {
 
  async handleLogin(email, password) {
   try {
-    // 1. Login dan ambil token
     const result = await this.model.login(email, password);
 
-    // 2. Simpan token jika tersedia
     if (result && result.token) {
       localStorage.setItem('token', result.token);
     } else {
@@ -73,14 +66,12 @@ export const loginUser = async (email, password) => {
 
     this.view.showSuccess('Login berhasil!');
 
-    // 3. Buka database lokal
     try {
       await storyDB.openDB();
     } catch (err) {
       console.error('Gagal buka DB:', err);
     }
 
-    // 4. Cek & minta izin notifikasi
     const hasPermission = await this.checkNotificationPermission();
 
     if (hasPermission) {
@@ -91,7 +82,6 @@ export const loginUser = async (email, password) => {
       }
     }
 
-    // 5. Redirect
     window.location.hash = '#/home';
 
   } catch (error) {
@@ -105,8 +95,6 @@ export const loginUser = async (email, password) => {
     console.warn('Push notifications not supported');
     return;
   }
-
-  // ✅ Ambil token dari model, bukan langsung dari localStorage
   const token = this.model.getAuthToken();
   if (!token) {
     throw new Error('User authentication token not found');
@@ -123,14 +111,12 @@ export const loginUser = async (email, password) => {
       });
     }
 
-    // ✅ Kirim subscription ke server, pastikan pakai Authorization Bearer
     await this.notificationApi.subscribe(subscription, token);
   } catch (error) {
     console.error('Push subscription error:', error);
     throw error;
   }
 }
-
 
   async unsubscribeFromPushNotifications() {
     if (!('serviceWorker' in navigator)) return;

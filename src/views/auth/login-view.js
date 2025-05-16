@@ -84,7 +84,6 @@ export class LoginView extends BaseView {
     const passwordInput = form.querySelector('#password');
     const togglePassword = form.querySelector('#togglePassword');
 
-    // Password visibility toggle
     togglePassword?.addEventListener('click', () => {
       const isPassword = passwordInput.type === 'password';
       passwordInput.type = isPassword ? 'text' : 'password';
@@ -95,7 +94,6 @@ export class LoginView extends BaseView {
         isPassword ? 'Sembunyikan password' : 'Tampilkan password');
     });
 
-    // Form submission
     form.addEventListener('submit', this.handleSubmit.bind(this));
   }
 
@@ -106,10 +104,8 @@ export class LoginView extends BaseView {
     const email = form.email.value.trim();
     const password = form.password.value;
 
-    // Clear previous errors
     this.clearError();
 
-    // Client-side validation
     if (!email || !password) {
       this.showError('Harap isi semua field');
       return;
@@ -137,8 +133,9 @@ export class LoginView extends BaseView {
       try {
         await handler(email, password);
         this.showSuccess('Login berhasil!');
+        location.reload();
       } catch (error) {
-        throw error; // Re-throw to be caught in handleSubmit
+        throw error; 
       }
     };
   }
@@ -146,15 +143,16 @@ export class LoginView extends BaseView {
   setLoadingState(isLoading) {
     if (!this.submitButton) return;
 
-    this.submitButton.disabled = isLoading;
-    this.submitButton.innerHTML = isLoading
-      ? `
-        <span class="spinner-border spinner-border-sm" 
-              role="status" 
-              aria-hidden="true"></span>
-        <span class="sr-only">Memproses...</span>
-      `
-      : 'Masuk';
+    if (isLoading) {
+      this.submitButton.disabled = true;
+      this.submitButton.innerHTML = `
+        <span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+        Memproses...
+      `;
+    } else {
+      this.submitButton.disabled = false;
+      this.submitButton.textContent = 'Masuk';
+    }
   }
 
   showSuccess(message) {

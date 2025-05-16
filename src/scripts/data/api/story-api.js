@@ -52,9 +52,8 @@ export const getStoryById = async (id) => {
   return responseJson.story;
 };
 
-// In story-api.js
 export const addStory = async (description, photo, lat, lon) => {
-  console.log('Adding story with:', { description, photo, lat, lon }); // Debug log
+  console.log('Adding story with:', { description, photo, lat, lon }); 
   
   const formData = new FormData();
   formData.append('description', description);
@@ -65,9 +64,9 @@ export const addStory = async (description, photo, lat, lon) => {
     formData.append('lon', lon);
   }
 
-  console.log('FormData entries:'); // Debug log
+  console.log('FormData entries:'); 
   for (let [key, value] of formData.entries()) {
-    console.log(key, value); // Debug log
+    console.log(key, value); 
   }
 
   try {
@@ -77,7 +76,7 @@ export const addStory = async (description, photo, lat, lon) => {
     });
 
     const responseJson = await response.json();
-    console.log('API response:', responseJson); // Debug log
+    console.log('API response:', responseJson); 
 
     if (!response.ok) {
       throw new Error(responseJson.message || 'Failed to add story');
@@ -85,7 +84,7 @@ export const addStory = async (description, photo, lat, lon) => {
 
     return responseJson;
   } catch (error) {
-    console.error('API call failed:', error); // Debug log
+    console.error('API call failed:', error); 
     throw error;
   }
 };
@@ -95,7 +94,6 @@ export const addGuestStory = async (description, photo, lat, lon) => {
   formData.append('description', description);
   formData.append('photo', photo);
   
-  // Only append location if both lat and lon are provided
   if (lat !== undefined && lon !== undefined) {
     formData.append('lat', lat);
     formData.append('lon', lon);
@@ -104,7 +102,6 @@ export const addGuestStory = async (description, photo, lat, lon) => {
   const response = await fetch(`${API_BASE_URL}/stories/guest`, {
     method: 'POST',
     body: formData,
-    // Don't set Content-Type header - let the browser set it automatically
   });
 
   const responseJson = await response.json();

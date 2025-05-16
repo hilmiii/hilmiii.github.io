@@ -10,7 +10,7 @@ import { RegisterView } from '../../views/auth/register-view.js';
 import { AddStoryView } from '../../views/story/add-story-view.js';
 import { DetailStoryView } from '../../views/story/detail-story-view.js';
 
-const authModel = new AuthModel(); // DIBUAT SEKALI UNTUK SEMUA ROUTE
+const authModel = new AuthModel(); 
 
 const routes = {
   '/home': async () => {
@@ -71,15 +71,44 @@ const router = async () => {
   const main = document.querySelector('main');
   const path = window.location.hash.slice(1) || '/home';
 
+  const protectedRoutes = ['/home', '/add-story', '/detail-story'];
+  const authPages = ['/login', '/register'];
+
+  const isProtected = protectedRoutes.includes(path);
+  const isAuthPage = authPages.includes(path);
+
+  const userLoggedIn = authModel.isLoggedIn();
+
+  if (isProtected && !userLoggedIn) {
+    window.location.hash = '#/login';
+    return;
+  }
+
+  if (isAuthPage && userLoggedIn) {
+    window.location.hash = '#/home';
+    return;
+  }
+
+  if (typeof routes[path] !== 'function') {
+    main.innerHTML = `
+      <section class="not-found">
+        <h1>404 - Halaman tidak ditemukan</h1>
+        <p>Maaf, halaman yang kamu cari tidak tersedia.</p>
+        <a href="#/home">⬅️ Kembali ke Beranda</a>
+      </section>
+    `;
+    return;
+  }
+
   if (!document.startViewTransition) {
     main.innerHTML = '';
-    await routes[path]();
+    await routes[path](authModel);
     return;
   }
 
   const transition = document.startViewTransition(async () => {
     main.innerHTML = '';
-    await routes[path]();
+    await routes[path](authModel);
   });
 
   try {
@@ -87,58 +116,8 @@ const router = async () => {
   } catch (error) {
     console.error('View transition failed:', error);
   }
-
-  const protectedRoutes = ['/home', '/add-story', '/detail-story'];
-
-  const authModel = new AuthModel();
-
-  if (protectedRoutes.includes(path) && !authModel.isLoggedIn()) {
-    window.location.hash = '#/login';
-    return;
-  }
-
-  const authPages = ['/login', '/register'];
-  if (authPages.includes(path) && authModel.isLoggedIn()) {
-    window.location.hash = '#/home';
-    return;
-  }
-
-  try {
-    const main = document.querySelector('main');
-    if (!main) {
-      console.error('Main element not found');
-      return;
-    }
-
-    const path = window.location.hash.slice(1) || '/home';
-    console.log('Current path:', path); 
-
-    const authModel = new AuthModel();
-
-    console.log('Available routes:', Object.keys(routes));
-
-    if (typeof routes[path] !== 'function') {
-      console.error('Route not found:', path);
-      main.innerHTML = '<p>Halaman tidak ditemukan</p>';
-      return;
-    }
-
-    main.innerHTML = '';
-    await routes[path](authModel);
-
-  } catch (error) {
-    console.error('Router error:', error);
-    document.querySelector('main').innerHTML = `
-      <div class="error">Terjadi kesalahan: ${error.message}</div>
-    `;
-  }
-
-  if (protectedRoutes.includes(path) && !authModel.isLoggedIn()) {
-    window.location.hash = '#/login';
-    return;
-  }
-
 };
+
 
 window.addEventListener('auth-change', router);
 

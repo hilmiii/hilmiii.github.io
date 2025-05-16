@@ -28,28 +28,32 @@ export class HomeView extends BaseView {
         <h2>Lokasi Curhat</h2>
         <div id="map" style="height: 400px;"></div>
       </section>
+      <section class="offline-actions">
+        <button id="clear-offline-btn" class="btn-danger">Hapus Data Offline</button>
+      </section>
     `;
 
     this.renderStories(stories);
+    this.bindClearOfflineButton();
   }
 
   renderStories(stories) {
     const container = this.main.querySelector('.stories-container');
     if (!container) return;
-    
+
     container.innerHTML = '';
-    
+
     stories.forEach(story => {
       const element = document.createElement('article');
       element.className = 'story-card';
-      element.setAttribute('tabindex', '0'); 
+      element.setAttribute('tabindex', '0');
       element.setAttribute('role', 'article');
       element.innerHTML = this.getStoryHTML(story);
       container.appendChild(element);
     });
   }
 
-    getStoryHTML(story) {
+  getStoryHTML(story) {
     return `
       <img src="${story.photoUrl}" alt="Foto ilustrasi cerita dari ${story.name || 'Anonim'}" class="story-image">
       <div class="story-content">
@@ -62,6 +66,7 @@ export class HomeView extends BaseView {
       </div>
     `;
   }
+
   showError(message, showLoginPrompt = false) {
     this.main.innerHTML = `
       <div class="error">
@@ -69,5 +74,20 @@ export class HomeView extends BaseView {
         ${showLoginPrompt ? '<a href="#/login" class="btn-primary">Login untuk melihat curhat</a>' : ''}
       </div>
     `;
+  }
+
+  bindClearOfflineButton() {
+    const clearBtn = this.main.querySelector('#clear-offline-btn');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', async () => {
+        const confirmClear = confirm('Yakin ingin menghapus semua data offline?');
+        if (confirmClear) {
+          const { storyDB } = await import('/scripts/utils/database.js');
+          await storyDB.clearStories();
+          alert('Data offline berhasil dihapus.');
+          location.reload();
+        }
+      });
+    }
   }
 }

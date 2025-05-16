@@ -8,7 +8,6 @@ import {
 } from '../api/auth-api.js';
 
 export class AuthModel {
-  // Konsisten gunakan token dari auth-api.js
   getToken() {
     return getAuthToken();
   }

@@ -6,12 +6,11 @@ export class StoryPresenter {
   constructor(model, authModel) {
     this.model = model;
     this.authModel = authModel;
-    this.notificationApi = new NotificationApi(); // Instantiate here if not using DI
+    this.notificationApi = new NotificationApi();
     this.vapidPublicKey = 'BCCs2eonMI-6H2ctvFaWg-UYdDv387Vno_bzUzALpB442r2lCnsHmtrx8biyPi_E-1fSGABK_Qs_GlvPoJJqxbk';
     this.initializePushNotifications();
   }
 
-  // Initialize push notification capability
   async initializePushNotifications() {
     if (!('serviceWorker' in navigator && 'PushManager' in window)) {
       console.warn('Push notifications not supported');
@@ -91,7 +90,6 @@ export class StoryPresenter {
     showStoriesOnMap(map, stories);
   }
 
-  // Add these methods to StoryPresenter class
 async syncPendingStories() {
   try {
     const pendingStories = await storyDB.getPendingStories();
@@ -133,7 +131,6 @@ async syncPendingStories() {
 async handleFormSubmit(formData) {
   try {
     if (!navigator.onLine) {
-      // Save to IndexedDB for later sync
       await storyDB.savePendingStory(formData);
       this.view.showSuccess('Curhat disimpan secara offline dan akan dikirim ketika online');
       return { offline: true };
@@ -148,7 +145,6 @@ async handleFormSubmit(formData) {
     return result;
   } catch (error) {
     if (error.message.includes('Failed to fetch')) {
-      // Network error - save to IndexedDB
       await storyDB.savePendingStory(formData);
       this.view.showSuccess('Curhat disimpan secara offline dan akan dikirim ketika online');
       return { offline: true };
@@ -187,13 +183,11 @@ async handleFormSubmit(formData) {
       subscription = await this.createPushSubscription(registration);
     }
 
-    // Ambil token dari authModel, misal
-    const token = this.authModel.getToken(); // Buat method getToken() yang mengembalikan token string
+    const token = this.authModel.getToken();
     if (!token) {
       throw new Error('User not authenticated');
     }
 
-    // Kirim subscription dan token ke API subscribe
     await this.notificationApi.subscribe(subscription, token);
 
   } catch (error) {

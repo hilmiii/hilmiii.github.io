@@ -1,12 +1,4 @@
-// src/scripts/main.js
-
 import { registerSW } from 'virtual:pwa-register';
-
-/**
- * Application Main Entry Point
- * - Handles service worker registration
- * - Initializes core application functionality
- */
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -15,7 +7,6 @@ if ('serviceWorker' in navigator) {
 }
 
 const initApp = async () => {
-  // Daftarkan service worker jika produksi
   if (import.meta.env.PROD) {
     try {
       registerSW({
@@ -35,7 +26,6 @@ const initApp = async () => {
 
   console.log('Application initialized');
 
-  // Update status jaringan
   const updateOnlineStatus = () => {
     const statusElement = document.getElementById('network-status');
     if (statusElement) {
@@ -55,5 +45,4 @@ if (document.readyState === 'complete' || document.readyState === 'interactive')
   document.addEventListener('DOMContentLoaded', initApp);
 };
 
-// Ekspor hanya fungsi yang valid
 export { initApp };

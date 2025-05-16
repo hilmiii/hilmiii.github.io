@@ -1,2 +1,5 @@
 NAMA: Rizky Hilmiawan Anggoro
 ID Dicoding: FC156D5Y1771
+VAPID public keys: BCCs2eonMI-6H2ctvFaWg-UYdDv387Vno_bzUzALpB442r2lCnsHmtrx8biyPi_E-1fSGABK_Qs_GlvPoJJqxbk
+API ENDPOINT : https://story-api.dicoding.dev/v1
+URL DEPLOYMENT : https://serloktakparani.netlify.app/

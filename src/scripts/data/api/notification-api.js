@@ -21,7 +21,7 @@ export class NotificationApi {
 
   /**
    * Subscribe to push notifications
-   * @param {PushSubscription} subscription 
+   * @param {PushSubscription} 
    * @returns {Promise<Object>}
    */
    async subscribe(subscription, token) {
@@ -29,7 +29,7 @@ export class NotificationApi {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`, // token valid di sini
+      'Authorization': `Bearer ${token}`, 
     },
     body: JSON.stringify({
       endpoint: subscription.endpoint,
@@ -198,5 +198,4 @@ export class NotificationApi {
   }
 }
 
-// Default export for backward compatibility
 export default NotificationApi;
