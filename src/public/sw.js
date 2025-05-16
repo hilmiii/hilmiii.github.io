@@ -52,53 +52,45 @@ workbox.routing.registerRoute(
 );
 
 self.addEventListener('push', (event) => {
-  console.log('[Service Worker] Push Received');
+  console.log('[SW] Push Event Received');
   
-  let data = {};
+  let title = 'SerlokTakParani';
+  let body = 'Pesan baru, Insight baru!';
+  let url = '/#/home';
+  
   try {
-    data = event.data ? event.data.json() : {};
+    if (event.data) {
+      const textData = event.data.text();
+      console.log('[SW] Raw push data:', textData);
+      
+      if (textData.startsWith('{') || textData.startsWith('[')) {
+        const jsonData = JSON.parse(textData);
+        console.log('[SW] Parsed JSON data:', jsonData);
+        
+        title = jsonData.title || title;
+        body = jsonData.body || body;
+        url = jsonData.url || url;
+      } else {
+        body = textData;
+      }
+    }
   } catch (e) {
-    console.error('Failed to parse push data:', e);
-    data = {
-      title: 'Notifikasi Baru',
-      body: 'Anda menerima pesan baru'
-    };
+    console.error('[SW] Error processing push data:', e);
   }
 
-  const title = data.title || 'CurhatAnonim';
+  console.log('[SW] Showing notification:', { title, body, url });
+  
   const options = {
-    body: data.body || 'Ada curhat baru di sekitar Anda!',
-    icon: '/images/logo.png',
+    body: body,
+    icon: '/images/logo.png',  
     badge: '/images/logo.png',
-    data: {
-      url: data.url || '/#/home'
-    }
+    data: { url: url }
   };
 
   event.waitUntil(
     self.registration.showNotification(title, options)
-      .then(() => console.log('Notification shown'))
-      .catch(err => console.error('Notification failed:', err))
-  );
-});
-
-self.addEventListener('notificationclick', (event) => {
-  event.notification.close();
-  
-  event.waitUntil(
-    clients.matchAll({ type: 'window' }).then((clientList) => {
-      const url = event.notification.data?.url || '/#/home';
-      
-      for (const client of clientList) {
-        if (client.url === url && 'focus' in client) {
-          return client.focus();
-        }
-      }
-      
-      if (clients.openWindow) {
-        return clients.openWindow(url);
-      }
-    })
+      .then(() => console.log('[SW] Notification shown successfully'))
+      .catch(err => console.error('[SW] Failed to show notification:', err))
   );
 });
 
