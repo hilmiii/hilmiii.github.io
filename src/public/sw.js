@@ -32,9 +32,15 @@ self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {};
 
   const title = data.title || 'Notifikasi';
-  const options = data.options || {
-    body: 'Notifikasi baru masuk!',
-  };
+const options = {
+  body: data.body || 'Pesan baru diterima!',
+  icon: data.icon || '/images/logo.png',
+  badge: data.badge || '/images/logo.png',
+  data: {
+    url: data.url || '/#/home'
+  }
+};
+
 
   event.waitUntil(self.registration.showNotification(title, options));
 });
