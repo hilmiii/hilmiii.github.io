@@ -49,4 +49,29 @@ self.addEventListener('push', (event) => {
     .then(() => console.log('[SW] Notification displayed'))
     .catch(err => console.error('[SW] Notification failed:', err))
   );
+
+  // Tambahkan log untuk debugging production
+console.log('Service Worker activated for scope:', self.registration.scope);
+
+self.addEventListener('push', (event) => {
+  const payload = event.data?.json() || {
+    title: 'CurhatAnonim',
+    body: 'Pesan baru tersedia',
+    icon: '/icons/icon-192.png'
+  };
+
+  // Pastikan URL icon absolute untuk production
+  const iconUrl = new URL(payload.icon || '/icons/icon-192.png', self.location.origin).href;
+
+  event.waitUntil(
+    self.registration.showNotification(payload.title, {
+      body: payload.body,
+      icon: iconUrl,
+      badge: '/icons/icon-192.png',
+      data: { url: payload.url || '/' }
+    })
+    .then(() => console.log('Notifikasi ditampilkan'))
+    .catch(err => console.error('Gagal menampilkan notifikasi:', err))
+  );
+});
 });
