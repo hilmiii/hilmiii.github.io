@@ -20,39 +20,59 @@ export class NotificationApi {
   }
 
   /**
-   * Subscribe to push notifications
-   * @param {PushSubscription} 
-   * @returns {Promise<Object>}
+   * Improved subscribe method with better error handling
    */
-   async subscribe(subscription, token) {
-  const response = await fetch(`${API_BASE_URL}/notifications/subscribe`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`, 
-    },
-    body: JSON.stringify({
-      endpoint: subscription.endpoint,
-      keys: {
+  async subscribe(subscription, token) {
+    try {
+      if (!subscription || !token) {
+        throw new Error('Subscription data or token is missing');
+      }
+
+      // Convert keys properly
+      const keys = {
         p256dh: subscription.getKey('p256dh')
-          ? btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('p256dh'))))
+          ? this.arrayBufferToBase64(subscription.getKey('p256dh'))
           : '',
         auth: subscription.getKey('auth')
-          ? btoa(String.fromCharCode.apply(null, new Uint8Array(subscription.getKey('auth'))))
-          : '',
-      }
-    }),
-  });
+          ? this.arrayBufferToBase64(subscription.getKey('auth'))
+          : ''
+      };
 
-  const result = await response.json();
-  if (!response.ok || result.error) {
-    throw new Error(result.message || 'Gagal subscribe notifikasi');
+      const response = await fetch(`${API_BASE_URL}/notifications/subscribe`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          endpoint: subscription.endpoint,
+          keys: keys
+        })
+      });
+
+      const result = await response.json();
+      
+      if (!response.ok) {
+        console.error('Subscription failed:', result);
+        throw new Error(result.message || 'Failed to subscribe to notifications');
+      }
+
+      console.log('Subscription successful:', result);
+      return result;
+
+    } catch (error) {
+      console.error('Error in subscribe:', error);
+      throw error;
+    }
   }
 
-  return result;
-}
-
-
+  /**
+   * Helper method to convert ArrayBuffer to Base64
+   */
+  arrayBufferToBase64(buffer) {
+    const bytes = new Uint8Array(buffer);
+    return btoa(String.fromCharCode.apply(null, bytes));
+  }
 
   /**
    * Unsubscribe from push notifications

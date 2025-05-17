@@ -52,45 +52,54 @@ workbox.routing.registerRoute(
 );
 
 self.addEventListener('push', (event) => {
-  console.log('[SW] Push Event Received');
-  
-  let title = 'SerlokTakParani';
-  let body = 'Pesan baru, Insight baru!';
-  let url = '/#/home';
-  
+  console.log('[SW] Push Event Received', event);
+
+  // Default notification content
+  const defaultNotification = {
+    title: 'CurhatAnonim',
+    body: 'Ada pesan baru untuk kamu!',
+    icon: '/icons/icon-192.png',
+    url: '/#/home'
+  };
+
+  let notificationData = defaultNotification;
+
   try {
-    if (event.data) {
-      const textData = event.data.text();
-      console.log('[SW] Raw push data:', textData);
+    // First try to get as text
+    const textData = event.data.text();
+    console.log('[SW] Raw push data:', textData);
+
+    // Check if it's JSON
+    if (textData.startsWith('{') || textData.startsWith('[')) {
+      const jsonData = JSON.parse(textData);
+      console.log('[SW] Parsed JSON data:', jsonData);
       
-      if (textData.startsWith('{') || textData.startsWith('[')) {
-        const jsonData = JSON.parse(textData);
-        console.log('[SW] Parsed JSON data:', jsonData);
-        
-        title = jsonData.title || title;
-        body = jsonData.body || body;
-        url = jsonData.url || url;
-      } else {
-        body = textData;
-      }
+      notificationData = {
+        title: jsonData.title || defaultNotification.title,
+        body: jsonData.options?.body || jsonData.body || defaultNotification.body,
+        icon: jsonData.icon || defaultNotification.icon,
+        url: jsonData.url || defaultNotification.url
+      };
+    } else {
+      // For non-JSON data (like test messages)
+      notificationData.body = textData;
     }
   } catch (e) {
     console.error('[SW] Error processing push data:', e);
   }
 
-  console.log('[SW] Showing notification:', { title, body, url });
-  
-  const options = {
-    body: body,
-    icon: '/images/logo.png',  
-    badge: '/images/logo.png',
-    data: { url: url }
-  };
+  console.log('[SW] Showing notification:', notificationData);
 
   event.waitUntil(
-    self.registration.showNotification(title, options)
-      .then(() => console.log('[SW] Notification shown successfully'))
-      .catch(err => console.error('[SW] Failed to show notification:', err))
+    self.registration.showNotification(notificationData.title, {
+      body: notificationData.body,
+      icon: notificationData.icon,
+      badge: '/icons/icon-192.png',
+      data: { url: notificationData.url },
+      vibrate: [200, 100, 200]
+    })
+    .then(() => console.log('[SW] Notification displayed'))
+    .catch(err => console.error('[SW] Notification failed:', err))
   );
 });
 

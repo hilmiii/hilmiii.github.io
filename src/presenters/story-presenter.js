@@ -11,6 +11,48 @@ export class StoryPresenter {
     this.initializePushNotifications();
   }
 
+  async registerPushNotifications() {
+  if (!('serviceWorker' in navigator && 'PushManager' in window)) {
+    console.error('Push API not supported');
+    return;
+  }
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    let subscription = await registration.pushManager.getSubscription();
+
+    if (!subscription) {
+      const convertedVapidKey = this.urlBase64ToUint8Array(this.vapidPublicKey);
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: convertedVapidKey
+      });
+    }
+
+    const token = this.authModel.getToken();
+    if (!token) {
+      throw new Error('User not authenticated');
+    }
+
+    // Debug: Log subscription details
+    console.log('Push Subscription:', JSON.stringify(subscription));
+    
+    const response = await this.notificationApi.subscribe(subscription, token);
+    console.log('Subscription response:', response);
+
+  } catch (error) {
+    console.error('Push registration failed:', error);
+    throw error;
+  }
+  }
+
+  async createPushSubscription(registration) {
+    return await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey)
+    });
+  }
+
   async initializePushNotifications() {
     if (!('serviceWorker' in navigator && 'PushManager' in window)) {
       console.warn('Push notifications not supported');
@@ -167,49 +209,6 @@ async handleFormSubmit(formData) {
           formData.location?.lat,
           formData.location?.lng
         );
-  }
-
-  async registerPushNotifications() {
-  if (!('serviceWorker' in navigator && 'PushManager' in window)) {
-    console.error('Push API not supported');
-    return;
-  }
-
-  try {
-    const registration = await navigator.serviceWorker.ready;
-    let subscription = await registration.pushManager.getSubscription();
-
-    if (!subscription) {
-      const convertedVapidKey = this.urlBase64ToUint8Array(this.vapidPublicKey);
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: convertedVapidKey
-      });
-    }
-
-    const token = this.authModel.getToken();
-    if (!token) {
-      throw new Error('User not authenticated');
-    }
-
-    // Debug: Log subscription details
-    console.log('Push Subscription:', JSON.stringify(subscription));
-    
-    const response = await this.notificationApi.subscribe(subscription, token);
-    console.log('Subscription response:', response);
-
-  } catch (error) {
-    console.error('Push registration failed:', error);
-    throw error;
-  }
-}
-
-
-  async createPushSubscription(registration) {
-    return await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey)
-    });
   }
 
   urlBase64ToUint8Array(base64String) {
