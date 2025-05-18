@@ -54,16 +54,15 @@ workbox.routing.registerRoute(
 self.addEventListener('push', (event) => {
   console.log('[SW] Push Event Received - Production:', event);
   
-  // Default payload untuk production debugging
+  // Default payload
   let payload = {
     title: 'CurhatAnonim',
-    body: 'Notifikasi default',
+    body: 'Pesan baru tersedia',
     icon: '/images/logo.png',
     url: '/'
   };
 
   try {
-    // Coba parse data notifikasi
     if (event.data) {
       const text = event.data.text();
       console.log('[SW] Raw notification data:', text);
@@ -76,9 +75,13 @@ self.addEventListener('push', (event) => {
     console.error('[SW] Error parsing notification:', e);
   }
 
-  // Pastikan URL icon absolute untuk production
-  const iconUrl = new URL(payload.icon || '/images/logo.png', self.location.origin).href;
-  console.log('[SW] Using icon URL:', iconUrl);
+  // Absolute URL untuk production
+  const iconUrl = new URL(payload.icon, self.location.origin).href;
+  console.log('[SW] Notification details:', {
+    title: payload.title,
+    body: payload.body,
+    icon: iconUrl
+  });
 
   event.waitUntil(
     self.registration.showNotification(payload.title, {
@@ -88,8 +91,8 @@ self.addEventListener('push', (event) => {
       data: { url: payload.url || '/' },
       vibrate: [200, 100, 200]
     })
-    .then(() => console.log('[SW] Notification shown in production'))
-    .catch(err => console.error('[SW] Failed to show notification:', err))
+    .then(() => console.log('[SW] Notification displayed successfully'))
+    .catch(err => console.error('[SW] Notification failed:', err))
   );
 });
 

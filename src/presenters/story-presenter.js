@@ -8,51 +8,102 @@ export class StoryPresenter {
     this.authModel = authModel;
     this.notificationApi = new NotificationApi();
     this.vapidPublicKey = 'BCCs2eonMI-6H2ctvFaWg-UYdDv387Vno_bzUzALpB442r2lCnsHmtrx8biyPi_E-1fSGABK_Qs_GlvPoJJqxbk';
+    this.hasActiveSubscription = false;
     this.initializePushNotifications();
   }
 
   async registerPushNotifications() {
-  if (!('serviceWorker' in navigator && 'PushManager' in window)) {
-    console.error('Push API not supported');
-    return;
-  }
+    if (!('serviceWorker' in navigator && 'PushManager' in window)) {
+      console.error('Push API not supported');
+      return false;
+    }
 
-  try {
-    const registration = await navigator.serviceWorker.ready;
-    let subscription = await registration.pushManager.getSubscription();
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      let subscription = await registration.pushManager.getSubscription();
 
-    if (!subscription) {
+      // Jika sudah ada subscription, cek statusnya
+      if (subscription) {
+        console.log('Found existing subscription');
+        this.hasActiveSubscription = true;
+        return true;
+      }
+
+      // Buat subscription baru jika belum ada
       const convertedVapidKey = this.urlBase64ToUint8Array(this.vapidPublicKey);
       subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: convertedVapidKey
       });
+
+      const token = this.authModel.getToken();
+      if (!token) {
+        throw new Error('User not authenticated');
+      }
+
+      console.log('New subscription created:', JSON.stringify(subscription));
+      
+      const response = await this.notificationApi.subscribe(subscription, token);
+      console.log('Subscription response:', response);
+
+      this.hasActiveSubscription = true;
+      return true;
+
+    } catch (error) {
+      console.error('Push registration failed:', error);
+      this.hasActiveSubscription = false;
+      throw error;
+    }
+  }
+
+  async handleFormSubmit(formData) {
+    try {
+      if (!navigator.onLine) {
+        await storyDB.savePendingStory(formData);
+        this.view.showSuccess('Curhat disimpan secara offline dan akan dikirim ketika online');
+        return { offline: true };
+      }
+
+      const result = await this.processFormSubmission(formData);
+      
+      // Hanya coba register notifikasi jika user logged in DAN belum ada subscription aktif
+      if (this.authModel.isLoggedIn() && !this.hasActiveSubscription) {
+        try {
+          await this.registerPushNotifications();
+        } catch (error) {
+          console.warn('Failed to register push notifications, continuing without it:', error);
+        }
+      }
+      
+      return result;
+    } catch (error) {
+      if (error.message.includes('Failed to fetch')) {
+        await storyDB.savePendingStory(formData);
+        this.view.showSuccess('Curhat disimpan secara offline dan akan dikirim ketika online');
+        return { offline: true };
+      }
+      throw error;
+    }
+  }
+
+  // Tambahkan method untuk mengecek status subscription
+  async checkPushSubscription() {
+    if (!('serviceWorker' in navigator)) {
+      return false;
     }
 
-    const token = this.authModel.getToken();
-    if (!token) {
-      throw new Error('User not authenticated');
+    try {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      this.hasActiveSubscription = !!subscription;
+      return this.hasActiveSubscription;
+    } catch (error) {
+      console.error('Error checking subscription:', error);
+      return false;
     }
-
-    // Debug: Log subscription details
-    console.log('Push Subscription:', JSON.stringify(subscription));
-    
-    const response = await this.notificationApi.subscribe(subscription, token);
-    console.log('Subscription response:', response);
-
-  } catch (error) {
-    console.error('Push registration failed:', error);
-    throw error;
-  }
   }
 
-  async createPushSubscription(registration) {
-    return await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey)
-    });
-  }
-
+  // Pindahkan initializePushNotifications untuk lebih awal
   async initializePushNotifications() {
     if (!('serviceWorker' in navigator && 'PushManager' in window)) {
       console.warn('Push notifications not supported');
@@ -60,8 +111,8 @@ export class StoryPresenter {
     }
 
     try {
-      await navigator.serviceWorker.ready;
-      console.log('Push notifications initialized');
+      await this.checkPushSubscription();
+      console.log('Push notifications initialized, subscription status:', this.hasActiveSubscription);
     } catch (error) {
       console.error('Push initialization failed:', error);
     }
