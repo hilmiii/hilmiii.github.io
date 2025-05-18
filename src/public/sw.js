@@ -1,41 +1,25 @@
 importScripts('https://storage.googleapis.com/workbox-cdn/releases/6.4.1/workbox-sw.js');
 
-// Konfigurasi awal
 workbox.setConfig({ debug: false });
 
-// Precache manifest (dari injectManifest Vite)
+const manifest = self.__WB_MANIFEST;
+
 workbox.precaching.precacheAndRoute(self.__WB_MANIFEST);
 
 // Asset tambahan
-const CACHE_NAME = 'app-shell-v1';
-const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/main.js',
-  '/styles.css',
-  '/fallback.html',
-  '/icons/icon-192.png',
-  '/images/fallback.jpg'
-];
+// const CACHE_NAME = 'app-shell-v1';
+// const ASSETS_TO_CACHE = [
+//   '/',
+//   '/index.html',
+//   '/scripts/main.js',
+//   '/styles/styles.css',
+//   '/images/logo.png',
+// ];
 
 // Install event
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS_TO_CACHE))
-  );
-});
-
-// Fetch event
-self.addEventListener('fetch', event => {
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match('/fallback.html'))
-    );
-    return;
-  }
-
-  event.respondWith(
-    caches.match(event.request).then(response => response || fetch(event.request))
   );
 });
 
