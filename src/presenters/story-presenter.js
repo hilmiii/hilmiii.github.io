@@ -8,94 +8,51 @@ export class StoryPresenter {
     this.authModel = authModel;
     this.notificationApi = new NotificationApi();
     this.vapidPublicKey = 'BCCs2eonMI-6H2ctvFaWg-UYdDv387Vno_bzUzALpB442r2lCnsHmtrx8biyPi_E-1fSGABK_Qs_GlvPoJJqxbk';
-    this.hasActiveSubscription = false;
-     this.isNotificationSupported = 'Notification' in window;
     this.initializePushNotifications();
   }
 
-  async initializePushNotifications() {
-    if (!this.isNotificationSupported) return;
-
-    try {
-      await navigator.serviceWorker.ready;
-      const subscription = await this.getPushSubscription();
-      if (subscription) {
-        console.log('Push subscription active:', subscription.endpoint);
-      }
-    } catch (error) {
-      console.error('Push init error:', error);
-    }
+  async registerPushNotifications() {
+  if (!('serviceWorker' in navigator && 'PushManager' in window)) {
+    console.error('Push API not supported');
+    return;
   }
 
-  async getPushSubscription() {
-    if (!this.isNotificationSupported) return null;
-    
+  try {
     const registration = await navigator.serviceWorker.ready;
-    return await registration.pushManager.getSubscription();
-  }
+    let subscription = await registration.pushManager.getSubscription();
 
-  async handleFormSubmit(formData) {
-    try {
-      // 1. Submit story ke model
-      const result = await this.model.addStory(
-        formData.description,
-        formData.photo,
-        formData.lat,
-        formData.lon
-      );
-
-      // 2. Jika berhasil dan user logged in, trigger notifikasi
-      if (this.authModel.isLoggedIn()) {
-        await this.triggerNewStoryNotification(formData.description);
-      }
-
-      return result;
-    } catch (error) {
-      console.error('Submit error:', error);
-      throw error;
-    }
-  }
-
-  async triggerNewStoryNotification(description) {
-    if (!this.isNotificationSupported) return;
-
-    try {
-      const subscription = await this.getPushSubscription();
-      if (!subscription) {
-        console.warn('No active push subscription');
-        return;
-      }
-
-      // 3. Kirim request ke backend untuk trigger notifikasi
-      await this.notificationApi.sendStoryNotification({
-        subscription,
-        description,
-        userId: this.authModel.getCurrentUser().id
+    if (!subscription) {
+      const convertedVapidKey = this.urlBase64ToUint8Array(this.vapidPublicKey);
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: convertedVapidKey
       });
-
-    } catch (error) {
-      console.error('Notification trigger failed:', error);
     }
+
+    const token = this.authModel.getToken();
+    if (!token) {
+      throw new Error('User not authenticated');
+    }
+
+    // Debug: Log subscription details
+    console.log('Push Subscription:', JSON.stringify(subscription));
+    
+    const response = await this.notificationApi.subscribe(subscription, token);
+    console.log('Subscription response:', response);
+
+  } catch (error) {
+    console.error('Push registration failed:', error);
+    throw error;
+  }
   }
 
-  // Tambahkan method untuk mengecek status subscription
-  async checkPushSubscription() {
-    if (!('serviceWorker' in navigator)) {
-      return false;
-    }
-
-    try {
-      const registration = await navigator.serviceWorker.ready;
-      const subscription = await registration.pushManager.getSubscription();
-      this.hasActiveSubscription = !!subscription;
-      return this.hasActiveSubscription;
-    } catch (error) {
-      console.error('Error checking subscription:', error);
-      return false;
-    }
+  async createPushSubscription(registration) {
+    return await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey)
+    });
   }
 
-  // Pindahkan initializePushNotifications untuk lebih awal
   async initializePushNotifications() {
     if (!('serviceWorker' in navigator && 'PushManager' in window)) {
       console.warn('Push notifications not supported');
@@ -103,8 +60,8 @@ export class StoryPresenter {
     }
 
     try {
-      await this.checkPushSubscription();
-      console.log('Push notifications initialized, subscription status:', this.hasActiveSubscription);
+      await navigator.serviceWorker.ready;
+      console.log('Push notifications initialized');
     } catch (error) {
       console.error('Push initialization failed:', error);
     }

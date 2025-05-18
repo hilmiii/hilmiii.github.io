@@ -1,41 +1,33 @@
-import { defineConfig } from 'vite'
-import { VitePWA } from 'vite-plugin-pwa'
+import { defineConfig } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
   root: 'src',
   build: {
     outDir: '../dist',
-    emptyOutDir: true 
-  }, 
+  },
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
-      devOptions: {
-        enabled: true,
-        type: 'module',
-      },
+      strategies: 'injectManifest',
+      srcDir: 'public',       // BUKAN src/public
+      filename: 'sw.js',
+      injectRegister: 'auto',
       manifest: {
         name: 'SerlokTakParani',
         short_name: 'Serlok',
         start_url: '/',
         display: 'standalone',
         background_color: '#ffffff',
-        theme_color: '#42b883',
+        theme_color: '#000000',
         icons: [
           {
-            src: '/images/logo.png',
+            src: 'images/logo.png',
             sizes: '192x192',
-            type: 'image/png',
-          },
-          {
-            src: '/images/logo.png',
-            sizes: '512x512',
             type: 'image/png',
           }
         ]
-      },
+      }
     })
   ]
-})
-
-
+});
