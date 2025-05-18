@@ -17,6 +17,29 @@ export const subscribeToNotification = async (subscription) => {
 export class NotificationApi {
   constructor() {
     this.VAPID_PUBLIC_KEY = VAPID_PUBLIC_KEY;
+  this.baseUrl = 'https://story-api.dicoding.dev/v1';
+  }
+
+  async sendStoryNotification({ subscription, description, userId }) {
+    const response = await fetch(`${this.baseUrl}/notifications`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${this.getAuthToken()}`
+      },
+      body: JSON.stringify({
+        userId,
+        description,
+        endpoint: subscription.endpoint,
+        keys: subscription.toJSON().keys
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to send notification');
+    }
+
+    return await response.json();
   }
 
   /**

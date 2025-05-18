@@ -9,80 +9,72 @@ export class StoryPresenter {
     this.notificationApi = new NotificationApi();
     this.vapidPublicKey = 'BCCs2eonMI-6H2ctvFaWg-UYdDv387Vno_bzUzALpB442r2lCnsHmtrx8biyPi_E-1fSGABK_Qs_GlvPoJJqxbk';
     this.hasActiveSubscription = false;
+     this.isNotificationSupported = 'Notification' in window;
     this.initializePushNotifications();
   }
 
-  async registerPushNotifications() {
-    if (!('serviceWorker' in navigator && 'PushManager' in window)) {
-      console.error('Push API not supported');
-      return false;
-    }
+  async initializePushNotifications() {
+    if (!this.isNotificationSupported) return;
 
     try {
-      const registration = await navigator.serviceWorker.ready;
-      let subscription = await registration.pushManager.getSubscription();
-
-      // Jika sudah ada subscription, cek statusnya
+      await navigator.serviceWorker.ready;
+      const subscription = await this.getPushSubscription();
       if (subscription) {
-        console.log('Found existing subscription');
-        this.hasActiveSubscription = true;
-        return true;
+        console.log('Push subscription active:', subscription.endpoint);
       }
-
-      // Buat subscription baru jika belum ada
-      const convertedVapidKey = this.urlBase64ToUint8Array(this.vapidPublicKey);
-      subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: convertedVapidKey
-      });
-
-      const token = this.authModel.getToken();
-      if (!token) {
-        throw new Error('User not authenticated');
-      }
-
-      console.log('New subscription created:', JSON.stringify(subscription));
-      
-      const response = await this.notificationApi.subscribe(subscription, token);
-      console.log('Subscription response:', response);
-
-      this.hasActiveSubscription = true;
-      return true;
-
     } catch (error) {
-      console.error('Push registration failed:', error);
-      this.hasActiveSubscription = false;
-      throw error;
+      console.error('Push init error:', error);
     }
+  }
+
+  async getPushSubscription() {
+    if (!this.isNotificationSupported) return null;
+    
+    const registration = await navigator.serviceWorker.ready;
+    return await registration.pushManager.getSubscription();
   }
 
   async handleFormSubmit(formData) {
     try {
-      if (!navigator.onLine) {
-        await storyDB.savePendingStory(formData);
-        this.view.showSuccess('Curhat disimpan secara offline dan akan dikirim ketika online');
-        return { offline: true };
+      // 1. Submit story ke model
+      const result = await this.model.addStory(
+        formData.description,
+        formData.photo,
+        formData.lat,
+        formData.lon
+      );
+
+      // 2. Jika berhasil dan user logged in, trigger notifikasi
+      if (this.authModel.isLoggedIn()) {
+        await this.triggerNewStoryNotification(formData.description);
       }
 
-      const result = await this.processFormSubmission(formData);
-      
-      // Hanya coba register notifikasi jika user logged in DAN belum ada subscription aktif
-      if (this.authModel.isLoggedIn() && !this.hasActiveSubscription) {
-        try {
-          await this.registerPushNotifications();
-        } catch (error) {
-          console.warn('Failed to register push notifications, continuing without it:', error);
-        }
-      }
-      
       return result;
     } catch (error) {
-      if (error.message.includes('Failed to fetch')) {
-        await storyDB.savePendingStory(formData);
-        this.view.showSuccess('Curhat disimpan secara offline dan akan dikirim ketika online');
-        return { offline: true };
-      }
+      console.error('Submit error:', error);
       throw error;
+    }
+  }
+
+  async triggerNewStoryNotification(description) {
+    if (!this.isNotificationSupported) return;
+
+    try {
+      const subscription = await this.getPushSubscription();
+      if (!subscription) {
+        console.warn('No active push subscription');
+        return;
+      }
+
+      // 3. Kirim request ke backend untuk trigger notifikasi
+      await this.notificationApi.sendStoryNotification({
+        subscription,
+        description,
+        userId: this.authModel.getCurrentUser().id
+      });
+
+    } catch (error) {
+      console.error('Notification trigger failed:', error);
     }
   }
 
